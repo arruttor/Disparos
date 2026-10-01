@@ -1,0 +1,12 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Página não encontrada{% endblock %}
+{% block conteudo %}
+<div class="error-page">
+  <div>
+    <div class="error-page__code">404</div>
+    <h1>Página não encontrada</h1>
+    <p>O endereço pode ter mudado ou a página foi removida.</p>
+    <a class="btn" href="{% url 'painel:dashboard' %}"><i class="ph ph-house"></i>Ir para o início</a>
+  </div>
+</div>
+{% endblock %}

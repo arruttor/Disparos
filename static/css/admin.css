@@ -1,0 +1,141 @@
+/* Admin do Django ("Cadastros") com a identidade do painel.
+   O admin expõe variáveis CSS próprias; aqui só remapeamos para a nossa paleta.
+   Mexeu na paleta em painel.css? Mexa aqui também. */
+
+:root, html[data-theme="light"] {
+  --primary: #1e6f64;
+  --secondary: #175a51;
+  --accent: #d9ece8;
+  --primary-fg: #ffffff;
+
+  --body-fg: #1c1b19;
+  --body-bg: #f5f4f0;
+  --body-quiet-color: #6b675f;
+  --body-loud-color: #1c1b19;
+
+  --header-color: #ecebe6;
+  --header-branding-color: #ffffff;
+  --header-bg: #17594f;
+  --header-link-color: #ffffff;
+
+  --breadcrumbs-fg: #d9ece8;
+  --breadcrumbs-link-fg: #ffffff;
+  --breadcrumbs-bg: #1e6f64;
+
+  --link-fg: #1e6f64;
+  --link-hover-color: #175a51;
+  --link-selected-fg: #175a51;
+
+  --hairline-color: #e4e1d9;
+  --border-color: #d3cfc5;
+
+  --error-fg: #b4412f;
+  --message-success-bg: #e3f0e7;
+  --message-warning-bg: #f6ecd9;
+  --message-error-bg: #f6e1dc;
+
+  --darkened-bg: #efede8;
+  --selected-bg: #e5e2da;
+  --selected-row: #eef6f4;
+
+  --button-fg: #ffffff;
+  --button-bg: #1e6f64;
+  --button-hover-bg: #175a51;
+  --default-button-bg: #175a51;
+  --default-button-hover-bg: #12483f;
+  --close-button-bg: #8a857b;
+  --close-button-hover-bg: #6b675f;
+  --delete-button-bg: #b4412f;
+  --delete-button-hover-bg: #963425;
+
+  --object-tools-bg: #6b675f;
+  --object-tools-hover-bg: #1c1b19;
+
+  --font-family-primary: "Geist", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-family-monospace: "Geist Mono", ui-monospace, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #5fb8a9;
+    --secondary: #2c6d63;
+    --accent: #bfe5dd;  /* no admin, --accent = cor da marca no cabeçalho */
+    --primary-fg: #0c1a17;
+    --body-fg: #ecebe6;
+    --body-bg: #131311;
+    --body-quiet-color: #a5a197;
+    --body-loud-color: #ffffff;
+    --header-bg: #10302b;
+    --header-color: #ecebe6;
+    --header-branding-color: #ffffff;
+    --header-link-color: #ffffff;
+    --breadcrumbs-bg: #17594f;
+    --link-fg: #78c6b8;
+    --link-hover-color: #9ad6cb;
+    --link-selected-fg: #9ad6cb;
+    --hairline-color: #2b2a26;
+    --border-color: #3a3934;
+    --darkened-bg: #1b1b18;
+    --selected-bg: #2b2a26;
+    --selected-row: #1d2e2b;
+    --button-bg: #2c8273;
+    --button-hover-bg: #359684;
+    --default-button-bg: #359684;
+    --default-button-hover-bg: #3fa893;
+    --message-success-bg: #1d3325;
+    --message-warning-bg: #3a2f1a;
+    --message-error-bg: #3d211c;
+  }
+}
+
+/* Tema escuro escolhido manualmente no seletor do próprio admin. */
+html[data-theme="dark"] {
+  --primary: #5fb8a9;
+  --secondary: #2c6d63;
+  --accent: #bfe5dd;  /* no admin, --accent = cor da marca no cabeçalho */
+  --primary-fg: #0c1a17;
+  --body-fg: #ecebe6;
+  --body-bg: #131311;
+  --body-quiet-color: #a5a197;
+  --body-loud-color: #ffffff;
+  --header-bg: #10302b;
+  --header-color: #ecebe6;
+  --header-branding-color: #ffffff;
+  --header-link-color: #ffffff;
+  --breadcrumbs-bg: #17594f;
+  --link-fg: #78c6b8;
+  --link-hover-color: #9ad6cb;
+  --link-selected-fg: #9ad6cb;
+  --hairline-color: #2b2a26;
+  --border-color: #3a3934;
+  --darkened-bg: #1b1b18;
+  --selected-bg: #2b2a26;
+  --selected-row: #1d2e2b;
+  --button-bg: #2c8273;
+  --button-hover-bg: #359684;
+  --default-button-bg: #359684;
+  --default-button-hover-bg: #3fa893;
+  --message-success-bg: #1d3325;
+  --message-warning-bg: #3a2f1a;
+  --message-error-bg: #3d211c;
+}
+
+body { -webkit-font-smoothing: antialiased; }
+
+#header { padding: 12px 32px; }
+.admin-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+.admin-brand__mark {
+  width: 28px; height: 28px; border-radius: 8px; display: inline-grid; place-items: center;
+  background: rgba(255, 255, 255, 0.14); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.admin-brand__mark svg { width: 16px; height: 16px; }
+
+.module, .inline-group, #changelist .changelist-form-container, fieldset.module {
+  border-radius: 12px; overflow: hidden;
+}
+.module h2, .module caption, .inline-group h2 { font-weight: 600; letter-spacing: -0.01em; }
+input[type="text"], input[type="password"], input[type="email"], input[type="url"], input[type="number"],
+input[type="tel"], textarea, select, .vTextField {
+  border-radius: 7px;
+}
+.button, input[type="submit"], input[type="button"], .submit-row input, a.button { border-radius: 8px; }

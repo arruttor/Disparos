@@ -47,6 +47,7 @@ class FormGoogle(FormSegredosMixin, forms.ModelForm):
     class Meta:
         model = Configuracao
         fields = ["google_client_id", "google_client_secret"]
+        labels = {"google_client_id": "Client ID", "google_client_secret": "Client secret"}
 
 
 class FormNumeroWhatsApp(forms.Form):

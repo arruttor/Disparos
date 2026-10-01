@@ -1,26 +1,51 @@
 {% extends "painel/base.html" %}
 {% block titulo %}Entrar{% endblock %}
-{% block conteudo %}
-<div class="row justify-content-center mt-5">
-  <div class="col-sm-8 col-md-5 col-lg-4">
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h4 mb-4 text-center"><i class="bi bi-heart-pulse text-primary"></i> Painel da Clínica</h1>
-        {% if form.errors %}<div class="alert alert-danger">Usuário ou senha inválidos.</div>{% endif %}
-        <form method="post">
-          {% csrf_token %}
-          <div class="mb-3">
-            <label class="form-label" for="id_username">Usuário</label>
-            <input class="form-control" type="text" name="username" id="id_username" autofocus required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="id_password">Senha</label>
-            <input class="form-control" type="password" name="password" id="id_password" required>
-          </div>
-          <button class="btn btn-primary w-100">Entrar</button>
-        </form>
-      </div>
+
+{% block corpo %}
+<main id="conteudo" class="auth">
+  <section class="auth__art" aria-hidden="true">
+    <span class="brand">
+      <span class="brand__mark">{% include "painel/_marca.html" %}</span>
+      <span class="brand__text">
+        <span class="brand__name">Painel de atendimento</span>
+        <span class="brand__sub">Clínica odontológica</span>
+      </span>
+    </span>
+
+    <div class="auth__quote">
+      <h2>WhatsApp e agenda da clínica, num só lugar.</h2>
+      <p>O assistente responde os pacientes, encontra horários livres e marca consultas. A equipe acompanha e assume quando quiser.</p>
     </div>
-  </div>
-</div>
+
+    <div class="auth__chips">
+      <span class="auth__chip"><i class="ph ph-whatsapp-logo"></i>Atendimento 24h</span>
+      <span class="auth__chip"><i class="ph ph-calendar-check"></i>Agenda Google</span>
+      <span class="auth__chip"><i class="ph ph-bell-ringing"></i>Confirmação D-1</span>
+    </div>
+  </section>
+
+  <section class="auth__form">
+    <div class="auth__box">
+      <h1>Entrar</h1>
+      <p>Use o usuário e a senha do painel.</p>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="field">
+          <label for="id_username">Usuário</label>
+          <input class="input" type="text" name="username" id="id_username" autocomplete="username" autofocus required
+                 value="{{ form.username.value|default:'' }}" {% if form.errors %}aria-invalid="true"{% endif %}>
+        </div>
+        <div class="field">
+          <label for="id_password">Senha</label>
+          <input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required
+                 {% if form.errors %}aria-invalid="true" aria-describedby="erro-login"{% endif %}>
+          {% if form.errors %}<div class="error" id="erro-login"><i class="ph ph-warning-circle"></i>Usuário ou senha incorretos.</div>{% endif %}
+        </div>
+        <button class="btn btn--block mt-2">Entrar <i class="ph ph-arrow-right"></i></button>
+      </form>
+    </div>
+  </section>
+</main>
 {% endblock %}

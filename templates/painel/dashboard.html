@@ -1,70 +1,117 @@
 {% extends "painel/base.html" %}
-{% load painel_tags %}
 {% block titulo %}Início{% endblock %}
-{% block conteudo %}
-<h1 class="h3 mb-4">Visão geral</h1>
 
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
-    <div class="text-muted small">Conversas com o robô</div><div class="fs-3 fw-semibold">{{ conversas_robo }}</div>
-  </div></div></div>
-  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
-    <div class="text-muted small">Aguardando humano</div><div class="fs-3 fw-semibold {% if conversas_humano %}text-warning{% endif %}">{{ conversas_humano }}</div>
-  </div></div></div>
-  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
-    <div class="text-muted small">Consultas hoje</div><div class="fs-3 fw-semibold">{{ agendamentos_hoje }}</div>
-  </div></div></div>
-  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
-    <div class="text-muted small">Erros nas últimas 24h</div><div class="fs-3 fw-semibold {% if erros_24h %}text-danger{% endif %}">{{ erros_24h }}</div>
-  </div></div></div>
+{% block conteudo %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{ hoje|date:"l, j \d\e F"|lower }}</p>
+    <h1 class="page-title">{{ saudacao }}, {{ user.get_short_name|default:user.get_username }}</h1>
+  </div>
+  <form method="post" action="{% url 'painel:verificar_tudo' %}">
+    {% csrf_token %}
+    <button class="btn btn--secondary"><i class="ph ph-arrows-clockwise"></i>Verificar integrações</button>
+  </form>
 </div>
 
-<div class="row g-3">
-  <div class="col-lg-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <strong>Integrações</strong>
-        <a href="{% url 'painel:integracoes' %}" class="btn btn-sm btn-outline-primary">Gerenciar</a>
-      </div>
-      <ul class="list-group list-group-flush">
-        <li class="list-group-item d-flex justify-content-between">
-          <span><i class="bi bi-robot"></i> IA</span>
-          <span class="badge bg-{{ config.ia_status|cor_status }}">{{ config.get_ia_status_display }}</span>
-        </li>
-        {% for u in unidades %}
-        <li class="list-group-item d-flex justify-content-between">
-          <span><i class="bi bi-whatsapp"></i> WhatsApp · {{ u.nome }}</span>
-          {% if u.whatsapp %}<span class="badge bg-{{ u.whatsapp.status|cor_status }}">{{ u.whatsapp.get_status_display }}</span>
-          {% else %}<span class="badge bg-light text-dark border">Não configurado</span>{% endif %}
-        </li>
-        <li class="list-group-item d-flex justify-content-between">
-          <span><i class="bi bi-calendar3"></i> Google Agenda · {{ u.nome }}</span>
-          {% if u.conta_google %}<span class="badge bg-{{ u.conta_google.status|cor_status }}">{{ u.conta_google.get_status_display }}</span>
-          {% else %}<span class="badge bg-light text-dark border">Não configurado</span>{% endif %}
-        </li>
-        {% empty %}
-        <li class="list-group-item text-muted">Nenhuma unidade cadastrada. <a href="{% url 'admin:core_unidade_add' %}">Cadastrar</a></li>
-        {% endfor %}
-      </ul>
+<div class="reveal">
+  <section class="kpis" aria-label="Indicadores">
+    <div class="kpi">
+      <div class="kpi__label"><i class="ph ph-robot"></i>Com o assistente</div>
+      <div class="kpi__value">{{ conversas_robo }}</div>
+      <div class="kpi__hint">conversas em andamento</div>
     </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <strong>Últimos erros</strong>
-        <a href="{% url 'painel:logs' %}?nivel=erros" class="btn btn-sm btn-outline-danger">Ver todos</a>
+    <div class="kpi {% if conversas_humano %}kpi--warn{% endif %}">
+      <div class="kpi__label"><i class="ph ph-hand-waving"></i>Aguardando a equipe</div>
+      <div class="kpi__value">{{ conversas_humano }}</div>
+      <div class="kpi__hint">{% if conversas_humano %}precisam de resposta{% else %}nenhuma pendente{% endif %}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi__label"><i class="ph ph-calendar-dots"></i>Consultas hoje</div>
+      <div class="kpi__value">{{ agendamentos_hoje }}</div>
+      <div class="kpi__hint">sem contar canceladas</div>
+    </div>
+    <div class="kpi {% if erros_24h %}kpi--danger{% endif %}">
+      <div class="kpi__label"><i class="ph ph-warning-diamond"></i>Erros em 24h</div>
+      <div class="kpi__value">{{ erros_24h }}</div>
+      <div class="kpi__hint">{% if erros_24h %}veja os detalhes ao lado{% else %}tudo estável{% endif %}</div>
+    </div>
+  </section>
+
+  <div class="grid grid--main">
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title"><i class="ph ph-plugs-connected"></i>Integrações</h2>
+        <a class="link" href="{% url 'painel:integracoes' %}">Gerenciar <i class="ph ph-arrow-right"></i></a>
       </div>
-      <ul class="list-group list-group-flush">
+
+      <ul class="rows">
+        <li class="row">
+          <span class="row__icon"><i class="ph ph-sparkle"></i></span>
+          <div>
+            <div class="row__title">Assistente de IA</div>
+            <div class="row__meta">{{ config.ia_detalhe_status|default:"Usado em todas as unidades" }}</div>
+          </div>
+          <span class="status status--{{ config.ia_status }}">{{ config.get_ia_status_display }}</span>
+        </li>
+      </ul>
+
+      {% for u in unidades %}
+      <div class="group-label"><i class="ph ph-map-pin"></i>{{ u.nome }}{% if u.cidade %} · {{ u.cidade }}{% endif %}</div>
+      <ul class="rows">
+        <li class="row">
+          <span class="row__icon"><i class="ph ph-whatsapp-logo"></i></span>
+          <div>
+            <div class="row__title">WhatsApp</div>
+            <div class="row__meta">
+              {% if u.whatsapp.numero %}<span class="num">+{{ u.whatsapp.numero }}</span>{% else %}Nenhum número conectado{% endif %}
+              {% if u.whatsapp and not u.whatsapp.robo_ativo %} · assistente pausado{% endif %}
+            </div>
+          </div>
+          {% if u.whatsapp %}<span class="status status--{{ u.whatsapp.status }}">{{ u.whatsapp.get_status_display }}</span>
+          {% else %}<span class="status status--nao_configurado">Não configurado</span>{% endif %}
+        </li>
+        <li class="row">
+          <span class="row__icon"><i class="ph ph-calendar-blank"></i></span>
+          <div>
+            <div class="row__title">Google Agenda</div>
+            <div class="row__meta">{{ u.conta_google.email|default:"Nenhuma conta conectada" }}</div>
+          </div>
+          {% if u.conta_google %}<span class="status status--{{ u.conta_google.status }}">{{ u.conta_google.get_status_display }}</span>
+          {% else %}<span class="status status--nao_configurado">Não configurado</span>{% endif %}
+        </li>
+      </ul>
+      {% empty %}
+      <div class="empty divider-top">
+        <div class="empty__icon empty__icon--neutral"><i class="ph ph-buildings"></i></div>
+        <p class="empty__title">Nenhuma unidade cadastrada</p>
+        <p class="empty__text">Cadastre as unidades da clínica para conectar o WhatsApp e a agenda de cada uma.</p>
+        <a class="btn btn--sm" href="{% url 'admin:core_unidade_add' %}"><i class="ph ph-plus"></i>Cadastrar unidade</a>
+      </div>
+      {% endfor %}
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title"><i class="ph ph-warning-diamond"></i>Erros recentes</h2>
+        {% if ultimos_erros %}<a class="link" href="{% url 'painel:logs' %}?nivel=erros">Ver todos <i class="ph ph-arrow-right"></i></a>{% endif %}
+      </div>
+      {% if ultimos_erros %}
+      <ul class="timeline">
         {% for log in ultimos_erros %}
-        <li class="list-group-item small">
-          <div class="d-flex justify-content-between"><code>{{ log.origem }}</code><span class="text-muted">{{ log.criado_em|date:"d/m H:i" }}</span></div>
-          {{ log.mensagem|truncatechars:140 }}
+        <li>
+          <div class="timeline__top"><code>{{ log.origem }}</code><time class="num" datetime="{{ log.criado_em|date:'c' }}">{{ log.criado_em|date:"d/m H:i" }}</time></div>
+          <p class="timeline__msg">{{ log.mensagem|truncatechars:160 }}</p>
         </li>
-        {% empty %}
-        <li class="list-group-item text-muted"><i class="bi bi-check-circle text-success"></i> Nenhum erro registrado.</li>
         {% endfor %}
       </ul>
-    </div>
+      {% else %}
+      <div class="empty">
+        <div class="empty__icon"><i class="ph ph-check-circle"></i></div>
+        <p class="empty__title">Tudo funcionando</p>
+        <p class="empty__text">Nenhum erro registrado. Quando algo falhar, aparece aqui com o horário e a origem.</p>
+      </div>
+      {% endif %}
+    </section>
   </div>
 </div>
 {% endblock %}

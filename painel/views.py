@@ -36,10 +36,14 @@ def superusuario(view):
 
 @superusuario
 def dashboard(request):
-    hoje = timezone.localdate()
+    agora = timezone.localtime()
+    hoje = agora.date()
     config = Configuracao.obter()
+    saudacao = "Bom dia" if agora.hour < 12 else "Boa tarde" if agora.hour < 18 else "Boa noite"
     unidades = Unidade.objects.filter(ativa=True).select_related("whatsapp", "conta_google")
     contexto = {
+        "saudacao": saudacao,
+        "hoje": hoje,
         "unidades": unidades,
         "config": config,
         "conversas_robo": Conversa.objects.filter(status=Conversa.Status.ROBO).count(),

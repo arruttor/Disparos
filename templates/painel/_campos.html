@@ -1,11 +1,19 @@
 {% for campo in form %}
-<div class="mb-2">
-  <label class="form-label small mb-1" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
-  <input class="form-control form-control-sm {% if campo.errors %}is-invalid{% endif %}"
+<div class="field">
+  <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+  <input class="input{% if campo.field.widget.input_type == 'password' or 'url' in campo.html_name or 'id' in campo.name %} input--mono{% endif %}"
          type="{{ campo.field.widget.input_type|default:'text' }}" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}"
          {% if campo.field.widget.input_type != "password" and campo.value %}value="{{ campo.value }}"{% endif %}
-         autocomplete="off">
-  {% for e in campo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-  {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+         {% if campo.errors %}aria-invalid="true" aria-describedby="{{ campo.id_for_label }}-erro"{% endif %}
+         {% if campo.field.widget.input_type == "password" and campo.help_text %}placeholder="••••••••••••"{% endif %}
+         autocomplete="off" spellcheck="false">
+  {% for e in campo.errors %}<div class="error" id="{{ campo.id_for_label }}-erro"><i class="ph ph-warning-circle"></i>{{ e }}</div>{% endfor %}
+  {% if campo.help_text %}
+    {% if campo.field.widget.input_type == "password" %}
+      <div class="hint hint--ok"><i class="ph ph-lock-key"></i>{{ campo.help_text }}</div>
+    {% else %}
+      <div class="hint">{{ campo.help_text }}</div>
+    {% endif %}
+  {% endif %}
 </div>
 {% endfor %}

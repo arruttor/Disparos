@@ -1,129 +1,189 @@
 {% extends "painel/base.html" %}
-{% load painel_tags %}
 {% block titulo %}Integrações{% endblock %}
 
 {% block conteudo %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0">Integrações</h1>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Integrações</h1>
+    <p class="page-lead">Conecte os serviços que o assistente usa. O status é verificado ao abrir esta página e quando você pedir.</p>
+  </div>
   <form method="post" action="{% url 'painel:verificar_tudo' %}">{% csrf_token %}
-    <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-repeat"></i> Verificar status</button>
+    <button class="btn btn--secondary"><i class="ph ph-arrows-clockwise"></i>Verificar status</button>
   </form>
 </div>
 
-{# ---------------- WhatsApp ---------------- #}
-<div class="card shadow-sm mb-4">
-  <div class="card-header bg-white"><strong><i class="bi bi-whatsapp text-success"></i> WhatsApp (Evolution API)</strong></div>
-  <div class="card-body">
-    <div class="row g-4">
-      <div class="col-lg-5">
-        <h2 class="h6">Servidor Evolution</h2>
-        <form method="post">{% csrf_token %}
-          <input type="hidden" name="formulario" value="evolution">
-          {% include "painel/_campos.html" with form=forms.evolution %}
-          <button class="btn btn-primary btn-sm">Salvar</button>
-        </form>
-        <form method="post" action="{% url 'painel:testar_evolution' %}" class="mt-2">{% csrf_token %}
-          <button class="btn btn-outline-primary btn-sm">Testar conexão</button>
-        </form>
-        <p class="small text-muted mt-3 mb-0">Webhook configurado automaticamente:<br><code class="text-break">{{ url_webhook }}</code></p>
-      </div>
-      <div class="col-lg-7">
-        <h2 class="h6">Números por unidade</h2>
-        {% for u in unidades %}
-        <div class="border rounded p-3 mb-3">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <div>
-              <strong>{{ u.nome }}</strong>
-              {% if u.whatsapp.numero %}<span class="text-muted small ms-1">+{{ u.whatsapp.numero }}</span>{% endif %}
-              {% if u.whatsapp.detalhe_status %}<div class="small text-muted">{{ u.whatsapp.detalhe_status }}{% if u.whatsapp.ultima_verificacao %} · {{ u.whatsapp.ultima_verificacao|date:"d/m H:i" }}{% endif %}</div>{% endif %}
-            </div>
-            {% if u.whatsapp %}<span class="badge bg-{{ u.whatsapp.status|cor_status }}">{{ u.whatsapp.get_status_display }}</span>
-            {% else %}<span class="badge bg-light text-dark border">Não configurado</span>{% endif %}
-          </div>
+<div class="integracoes">
+  <nav class="toc" aria-label="Seções">
+    <div class="toc__label">Nesta página</div>
+    <a href="#whatsapp"><span><i class="ph ph-whatsapp-logo"></i> WhatsApp</span></a>
+    <a href="#google"><span><i class="ph ph-calendar-check"></i> Google Agenda</span></a>
+    <a href="#ia"><span><i class="ph ph-sparkle"></i> Assistente de IA</span></a>
+  </nav>
 
-          {% if u.whatsapp.status == "conectado" %}
-            <div class="d-flex gap-2 flex-wrap">
-              <form method="post" action="{% url 'painel:whatsapp_robo' u.pk %}">{% csrf_token %}
-                {% if u.whatsapp.robo_ativo %}
-                  <button class="btn btn-sm btn-outline-warning"><i class="bi bi-pause-circle"></i> Pausar robô</button>
-                {% else %}
-                  <button class="btn btn-sm btn-success"><i class="bi bi-play-circle"></i> Ligar robô</button>
-                {% endif %}
-              </form>
-              <form method="post" action="{% url 'painel:whatsapp_desconectar' u.pk %}" onsubmit="return confirm('Desconectar o WhatsApp desta unidade?')">{% csrf_token %}
-                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-plug"></i> Desconectar</button>
-              </form>
+  <div class="reveal">
+    {# ============================== WhatsApp ============================== #}
+    <section class="panel section" id="whatsapp">
+      <header class="section__head">
+        <span class="section__icon"><i class="ph ph-whatsapp-logo"></i></span>
+        <div>
+          <h2 class="section__title">WhatsApp</h2>
+          <p class="section__desc">Via Evolution API. Cada unidade usa o próprio número, e a equipe continua respondendo pelo celular normalmente.</p>
+        </div>
+      </header>
+
+      <div class="split">
+        <div>
+          <h3 class="step-title"><span class="step-num">1</span>Servidor Evolution</h3>
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="formulario" value="evolution">
+            {% include "painel/_campos.html" with form=forms.evolution %}
+            <div class="actions">
+              <button class="btn btn--sm"><i class="ph ph-floppy-disk"></i>Salvar</button>
             </div>
+          </form>
+          <form method="post" action="{% url 'painel:testar_evolution' %}" class="actions mt-2">{% csrf_token %}
+            <button class="btn btn--sm btn--ghost"><i class="ph ph-plug"></i>Testar conexão</button>
+          </form>
+          <div class="callout mt-4">
+            <i class="ph ph-webhooks-logo"></i>
+            <div>Webhook configurado automaticamente em<br><code>{{ url_webhook }}</code></div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="step-title"><span class="step-num">2</span>Números por unidade</h3>
+          {% for u in unidades %}
+          <article class="unit">
+            <div class="unit__head">
+              <div>
+                <div class="unit__name">{{ u.nome }}</div>
+                <div class="unit__meta">
+                  {% if u.whatsapp.numero %}<span class="num">+{{ u.whatsapp.numero }}</span>{% else %}Sem número{% endif %}
+                  {% if u.whatsapp.ultima_verificacao %} · verificado {{ u.whatsapp.ultima_verificacao|date:"d/m H:i" }}{% endif %}
+                </div>
+              </div>
+              {% if u.whatsapp %}<span class="status status--{{ u.whatsapp.status }}">{{ u.whatsapp.get_status_display }}</span>
+              {% else %}<span class="status status--nao_configurado">Não configurado</span>{% endif %}
+            </div>
+
+            {% if u.whatsapp.status == "conectado" %}
+              <div class="actions mt-0">
+                <form method="post" action="{% url 'painel:whatsapp_robo' u.pk %}">{% csrf_token %}
+                  {% if u.whatsapp.robo_ativo %}
+                    <button class="btn btn--sm btn--secondary"><i class="ph ph-pause"></i>Pausar assistente</button>
+                  {% else %}
+                    <button class="btn btn--sm"><i class="ph ph-play"></i>Ligar assistente</button>
+                  {% endif %}
+                </form>
+                <form method="post" action="{% url 'painel:whatsapp_desconectar' u.pk %}" data-confirmar="Desconectar o WhatsApp de {{ u.nome }}? O assistente para de responder nesse número.">{% csrf_token %}
+                  <button class="btn btn--sm btn--danger"><i class="ph ph-plugs"></i>Desconectar</button>
+                </form>
+              </div>
+              {% if not u.whatsapp.robo_ativo %}
+              <p class="hint mt-3">O assistente está pausado. As mensagens continuam sendo registradas.</p>
+              {% endif %}
+            {% else %}
+              <form method="post" action="{% url 'painel:whatsapp_conectar' u.pk %}" class="inline-form">{% csrf_token %}
+                <label class="sr-only" for="numero-{{ u.pk }}">Número de {{ u.nome }}</label>
+                <input class="input input--mono" id="numero-{{ u.pk }}" name="numero" inputmode="numeric" placeholder="5581999999999" value="{{ u.whatsapp.numero|default:'' }}">
+                <button class="btn"><i class="ph ph-qr-code"></i>Conectar</button>
+              </form>
+              {% if u.whatsapp.status == "erro" and u.whatsapp.detalhe_status %}
+              <div class="error"><i class="ph ph-warning-circle"></i>{{ u.whatsapp.detalhe_status }}</div>
+              {% else %}
+              <p class="hint">Com DDI e DDD, só números. Em seguida, escaneie o QR code com o celular da unidade.</p>
+              {% endif %}
+            {% endif %}
+          </article>
+          {% empty %}
+          <div class="empty">
+            <div class="empty__icon empty__icon--neutral"><i class="ph ph-buildings"></i></div>
+            <p class="empty__title">Nenhuma unidade</p>
+            <p class="empty__text">Cadastre uma unidade para conectar um número.</p>
+            <a class="btn btn--sm" href="{% url 'admin:core_unidade_add' %}"><i class="ph ph-plus"></i>Cadastrar unidade</a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    {# ============================== Google ============================== #}
+    <section class="panel section" id="google">
+      <header class="section__head">
+        <span class="section__icon"><i class="ph ph-calendar-check"></i></span>
+        <div>
+          <h2 class="section__title">Google Agenda</h2>
+          <p class="section__desc">Onde as consultas são lidas e marcadas. Cada unidade conecta a própria conta Google.</p>
+        </div>
+      </header>
+
+      <div class="split">
+        <div>
+          <h3 class="step-title"><span class="step-num">1</span>Credenciais OAuth</h3>
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="formulario" value="google">
+            {% include "painel/_campos.html" with form=forms.google %}
+            <div class="actions">
+              <button class="btn btn--sm"><i class="ph ph-floppy-disk"></i>Salvar</button>
+            </div>
+          </form>
+        </div>
+        <div>
+          <h3 class="step-title"><span class="step-num">2</span>Contas por unidade</h3>
+          {% for u in unidades %}
+          <article class="unit">
+            <div class="unit__head unit__head--inline">
+              <div>
+                <div class="unit__name">{{ u.nome }}</div>
+                <div class="unit__meta">{{ u.conta_google.email|default:"Nenhuma conta conectada" }}</div>
+              </div>
+              <button class="btn btn--sm btn--secondary" disabled title="Disponível na próxima etapa"><i class="ph ph-google-logo"></i>Conectar</button>
+            </div>
+          </article>
+          {% endfor %}
+          <div class="callout callout--info mt-3">
+            <i class="ph ph-hourglass-medium"></i>
+            <div>A conexão com o Google entra na próxima etapa. Os campos ao lado já podem ser preenchidos.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ============================== IA ============================== #}
+    <section class="panel section" id="ia">
+      <header class="section__head">
+        <span class="section__icon"><i class="ph ph-sparkle"></i></span>
+        <div>
+          <h2 class="section__title">Assistente de IA</h2>
+          <p class="section__desc">Modelo Claude, da Anthropic. Entende o que o paciente escreve e decide o próximo passo.</p>
+        </div>
+        <span class="section__status status status--{{ config.ia_status }}">{{ config.get_ia_status_display }}</span>
+      </header>
+
+      <div class="split">
+        <div>
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="formulario" value="ia">
+            {% include "painel/_campos.html" with form=forms.ia %}
+            <div class="actions">
+              <button class="btn btn--sm"><i class="ph ph-floppy-disk"></i>Salvar e testar</button>
+            </div>
+          </form>
+        </div>
+        <div>
+          <h3 class="step-title">Última verificação</h3>
+          {% if config.ia_ultima_verificacao %}
+            <p class="num">{{ config.ia_ultima_verificacao|date:"d/m/Y H:i" }}</p>
+            {% if config.ia_detalhe_status %}<p class="hint">{{ config.ia_detalhe_status }}</p>{% endif %}
           {% else %}
-            <form method="post" action="{% url 'painel:whatsapp_conectar' u.pk %}" class="row g-2 align-items-center">{% csrf_token %}
-              <div class="col-sm-7"><input class="form-control form-control-sm" name="numero" placeholder="5581999999999" value="{{ u.whatsapp.numero|default:'' }}"></div>
-              <div class="col-sm-5"><button class="btn btn-sm btn-success w-100"><i class="bi bi-qr-code"></i> Conectar (QR code)</button></div>
-            </form>
+            <p class="hint mt-0">Ainda não verificado. Informe a chave e salve.</p>
           {% endif %}
+          <form method="post" action="{% url 'painel:testar_ia' %}" class="actions">{% csrf_token %}
+            <button class="btn btn--sm btn--ghost"><i class="ph ph-arrows-clockwise"></i>Testar novamente</button>
+          </form>
         </div>
-        {% empty %}
-        <p class="text-muted">Cadastre uma unidade em <a href="{% url 'admin:core_unidade_add' %}">Cadastros</a> primeiro.</p>
-        {% endfor %}
       </div>
-    </div>
-  </div>
-</div>
-
-{# ---------------- Google Agenda ---------------- #}
-<div class="card shadow-sm mb-4">
-  <div class="card-header bg-white"><strong><i class="bi bi-calendar3 text-primary"></i> Google Agenda</strong></div>
-  <div class="card-body">
-    <div class="row g-4">
-      <div class="col-lg-5">
-        <h2 class="h6">Credenciais OAuth (Google Cloud)</h2>
-        <form method="post">{% csrf_token %}
-          <input type="hidden" name="formulario" value="google">
-          {% include "painel/_campos.html" with form=forms.google %}
-          <button class="btn btn-primary btn-sm">Salvar</button>
-        </form>
-      </div>
-      <div class="col-lg-7">
-        <h2 class="h6">Contas por unidade</h2>
-        {% for u in unidades %}
-        <div class="border rounded p-3 mb-3 d-flex justify-content-between align-items-center">
-          <div><strong>{{ u.nome }}</strong>
-            <div class="small text-muted">{{ u.conta_google.email|default:"Nenhuma conta conectada" }}</div>
-          </div>
-          <div class="text-end">
-            {% if u.conta_google %}<span class="badge bg-{{ u.conta_google.status|cor_status }}">{{ u.conta_google.get_status_display }}</span>
-            {% else %}<span class="badge bg-light text-dark border">Não configurado</span>{% endif %}
-            <div><button class="btn btn-sm btn-outline-primary mt-2" disabled title="Próxima etapa">Conectar com Google</button></div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ---------------- IA ---------------- #}
-<div class="card shadow-sm mb-4">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <strong><i class="bi bi-robot"></i> Inteligência Artificial (Anthropic Claude)</strong>
-    <span class="badge bg-{{ config.ia_status|cor_status }}">{{ config.get_ia_status_display }}</span>
-  </div>
-  <div class="card-body">
-    <div class="row g-4">
-      <div class="col-lg-5">
-        <form method="post">{% csrf_token %}
-          <input type="hidden" name="formulario" value="ia">
-          {% include "painel/_campos.html" with form=forms.ia %}
-          <button class="btn btn-primary btn-sm">Salvar e testar</button>
-        </form>
-      </div>
-      <div class="col-lg-7 small text-muted">
-        {% if config.ia_detalhe_status %}<p class="mb-1">{{ config.ia_detalhe_status }}</p>{% endif %}
-        {% if config.ia_ultima_verificacao %}<p>Última verificação: {{ config.ia_ultima_verificacao|date:"d/m/Y H:i" }}</p>{% endif %}
-        <form method="post" action="{% url 'painel:testar_ia' %}">{% csrf_token %}
-          <button class="btn btn-outline-primary btn-sm">Testar novamente</button>
-        </form>
-      </div>
-    </div>
+    </section>
   </div>
 </div>
 {% endblock %}

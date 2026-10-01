@@ -1,36 +1,61 @@
 {% extends "painel/base.html" %}
-{% load painel_tags %}
 {% block titulo %}Conectar WhatsApp{% endblock %}
+
 {% block conteudo %}
-<div class="row justify-content-center">
-  <div class="col-md-7 col-lg-5">
-    <div class="card shadow-sm text-center">
-      <div class="card-body p-4">
-        <h1 class="h5">WhatsApp · {{ instancia.unidade.nome }}</h1>
-        <p><span id="status" class="badge bg-{{ instancia.status|cor_status }}">{{ instancia.get_status_display }}</span></p>
+<div class="qr-page">
+  <a class="link" href="{% url 'painel:integracoes' %}#whatsapp"><i class="ph ph-arrow-left"></i>Integrações</a>
 
-        {% if instancia.status == "conectado" %}
-          <p class="text-success"><i class="bi bi-check-circle fs-1"></i><br>Conectado com sucesso!</p>
-        {% elif erro %}
-          <div class="alert alert-danger text-start small">{{ erro }}</div>
-        {% else %}
-          <div id="area-qr">
-            {% if qrcode %}<img src="{{ qrcode }}" alt="QR code" class="img-fluid border rounded mb-3" style="max-width:280px">{% endif %}
-            {% if codigo_pareamento %}<p>Ou use o código de pareamento: <strong class="fs-5">{{ codigo_pareamento }}</strong></p>{% endif %}
-            <ol class="text-start small text-muted">
-              <li>No celular da unidade, abra o WhatsApp Business.</li>
-              <li>Toque em <strong>⋮ / Configurações › Dispositivos conectados › Conectar dispositivo</strong>.</li>
-              <li>Aponte a câmera para o QR code acima.</li>
-            </ol>
-            <p class="small text-muted">O QR code expira em poucos segundos. <a href="">Gerar outro</a></p>
-          </div>
-          <div id="sucesso" class="d-none text-success"><i class="bi bi-check-circle fs-1"></i><br>Conectado com sucesso!</div>
-        {% endif %}
-
-        <a href="{% url 'painel:integracoes' %}" class="btn btn-outline-secondary btn-sm mt-2">Voltar às integrações</a>
-      </div>
+  <div class="page-head mt-3">
+    <div>
+      <h1 class="page-title">Conectar WhatsApp</h1>
+      <p class="page-lead">{{ instancia.unidade.nome }}{% if instancia.numero %} · <span class="num">+{{ instancia.numero }}</span>{% endif %}</p>
     </div>
+    <span id="status" class="status status--{{ instancia.status }}">{{ instancia.get_status_display }}</span>
   </div>
+
+  <section class="panel qr-card">
+    {% if instancia.status == "conectado" %}
+      <div class="qr-visual"><div class="success-mark"><i class="ph ph-check"></i></div></div>
+      <div>
+        <h2 class="section__title">Número conectado</h2>
+        <p class="page-lead">O assistente já recebe as mensagens desta unidade. A equipe continua usando o WhatsApp no celular normalmente.</p>
+        <div class="actions"><a class="btn" href="{% url 'painel:integracoes' %}#whatsapp">Voltar às integrações</a></div>
+      </div>
+
+    {% elif erro %}
+      <div class="qr-visual"><div class="empty__icon empty__icon--neutral"><i class="ph ph-plug-charging"></i></div></div>
+      <div>
+        <h2 class="section__title">Não foi possível gerar o QR code</h2>
+        <div class="callout mt-3"><i class="ph ph-warning-circle"></i><div>{{ erro }}</div></div>
+        <p class="hint mt-3">Confira se a Evolution está rodando e se a URL e a chave em Integrações estão certas. O erro também ficou registrado em Logs.</p>
+        <div class="actions">
+          <a class="btn" href="">Tentar de novo</a>
+          <a class="btn btn--ghost" href="{% url 'painel:logs' %}?nivel=erros">Ver logs</a>
+        </div>
+      </div>
+
+    {% else %}
+      <div class="qr-visual">
+        <div id="area-qr">
+          {% if qrcode %}<div class="qr-frame"><img src="{{ qrcode }}" alt="QR code para conectar o WhatsApp de {{ instancia.unidade.nome }}"></div>{% endif %}
+        </div>
+        <div id="sucesso" class="success-mark" hidden><i class="ph ph-check"></i></div>
+      </div>
+      <div>
+        <h2 class="section__title" id="titulo-qr">Escaneie com o celular da unidade</h2>
+        <ol class="steps" id="passos">
+          <li>Abra o <strong>WhatsApp Business</strong> no celular.</li>
+          <li>Toque em <strong>⋮</strong> ou <strong>Configurações</strong>, depois em <strong>Dispositivos conectados</strong>.</li>
+          <li>Toque em <strong>Conectar dispositivo</strong> e aponte a câmera para o código.</li>
+        </ol>
+        {% if codigo_pareamento %}
+        <div class="callout"><i class="ph ph-keyboard"></i><div>Prefere digitar? Use o código <span class="qr-code">{{ codigo_pareamento }}</span></div></div>
+        {% endif %}
+        <p class="hint mt-3" id="dica-qr">O código expira em cerca de 40 segundos. <a href="">Gerar outro</a></p>
+        <div class="actions" id="acoes-sucesso" hidden><a class="btn" href="{% url 'painel:integracoes' %}#whatsapp">Voltar às integrações</a></div>
+      </div>
+    {% endif %}
+  </section>
 </div>
 {% endblock %}
 
@@ -38,20 +63,26 @@
 {% if instancia.status != "conectado" and not erro %}
 <script>
   // Consulta o status a cada 3s até conectar.
-  const badge = document.getElementById("status");
-  const timer = setInterval(async () => {
-    try {
-      const r = await fetch("{% url 'painel:whatsapp_status' instancia.unidade_id %}");
-      const d = await r.json();
-      badge.textContent = d.rotulo;
-      if (d.status === "conectado") {
-        clearInterval(timer);
-        badge.className = "badge bg-success";
-        document.getElementById("area-qr").classList.add("d-none");
-        document.getElementById("sucesso").classList.remove("d-none");
-      }
-    } catch (e) { /* tenta de novo no próximo ciclo */ }
-  }, 3000);
+  (function () {
+    var badge = document.getElementById("status");
+    var timer = setInterval(async function () {
+      try {
+        var r = await fetch("{% url 'painel:whatsapp_status' instancia.unidade_id %}");
+        var d = await r.json();
+        badge.textContent = d.rotulo;
+        badge.className = "status status--" + d.status;
+        if (d.status === "conectado") {
+          clearInterval(timer);
+          document.getElementById("area-qr").hidden = true;
+          document.getElementById("sucesso").hidden = false;
+          document.getElementById("titulo-qr").textContent = "Número conectado";
+          document.getElementById("passos").hidden = true;
+          document.getElementById("dica-qr").textContent = "O assistente já recebe as mensagens desta unidade.";
+          document.getElementById("acoes-sucesso").hidden = false;
+        }
+      } catch (e) { /* tenta de novo no próximo ciclo */ }
+    }, 3000);
+  })();
 </script>
 {% endif %}
 {% endblock %}

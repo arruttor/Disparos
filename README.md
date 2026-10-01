@@ -2,6 +2,9 @@
 
 Atendimento por WhatsApp com IA + agendamento no Google Agenda + painel de gestão.
 
+> **Vai trabalhar no projeto?** Leia primeiro o [CLAUDE.md](CLAUDE.md) (contexto, convenções, armadilhas, roteiro e histórico).
+> **Vai colocar no ar?** Siga o [DEPLOY.md](DEPLOY.md).
+
 ## Estrutura
 
 | App | Responsabilidade |
@@ -53,6 +56,7 @@ e o Django rodando fora dele, use `URL_PUBLICA=http://host.docker.internal:8000`
 
 - [x] 1. Base: modelos, painel, logs, cliente da Evolution, webhook
 - [x] 2. Conexão real com WhatsApp (Docker + Evolution)
+- [x] Auditoria de segredos + redesign do front-end
 - [ ] 3. OAuth do Google Agenda
 - [ ] 4. Robô com IA (consulta à agenda)
 - [ ] 5. Agendamento (criar/remarcar/cancelar, cores de status)
