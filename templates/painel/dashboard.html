@@ -1,0 +1,70 @@
+{% extends "painel/base.html" %}
+{% load painel_tags %}
+{% block titulo %}Início{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-4">Visão geral</h1>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="text-muted small">Conversas com o robô</div><div class="fs-3 fw-semibold">{{ conversas_robo }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="text-muted small">Aguardando humano</div><div class="fs-3 fw-semibold {% if conversas_humano %}text-warning{% endif %}">{{ conversas_humano }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="text-muted small">Consultas hoje</div><div class="fs-3 fw-semibold">{{ agendamentos_hoje }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="text-muted small">Erros nas últimas 24h</div><div class="fs-3 fw-semibold {% if erros_24h %}text-danger{% endif %}">{{ erros_24h }}</div>
+  </div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Integrações</strong>
+        <a href="{% url 'painel:integracoes' %}" class="btn btn-sm btn-outline-primary">Gerenciar</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between">
+          <span><i class="bi bi-robot"></i> IA</span>
+          <span class="badge bg-{{ config.ia_status|cor_status }}">{{ config.get_ia_status_display }}</span>
+        </li>
+        {% for u in unidades %}
+        <li class="list-group-item d-flex justify-content-between">
+          <span><i class="bi bi-whatsapp"></i> WhatsApp · {{ u.nome }}</span>
+          {% if u.whatsapp %}<span class="badge bg-{{ u.whatsapp.status|cor_status }}">{{ u.whatsapp.get_status_display }}</span>
+          {% else %}<span class="badge bg-light text-dark border">Não configurado</span>{% endif %}
+        </li>
+        <li class="list-group-item d-flex justify-content-between">
+          <span><i class="bi bi-calendar3"></i> Google Agenda · {{ u.nome }}</span>
+          {% if u.conta_google %}<span class="badge bg-{{ u.conta_google.status|cor_status }}">{{ u.conta_google.get_status_display }}</span>
+          {% else %}<span class="badge bg-light text-dark border">Não configurado</span>{% endif %}
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted">Nenhuma unidade cadastrada. <a href="{% url 'admin:core_unidade_add' %}">Cadastrar</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Últimos erros</strong>
+        <a href="{% url 'painel:logs' %}?nivel=erros" class="btn btn-sm btn-outline-danger">Ver todos</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for log in ultimos_erros %}
+        <li class="list-group-item small">
+          <div class="d-flex justify-content-between"><code>{{ log.origem }}</code><span class="text-muted">{{ log.criado_em|date:"d/m H:i" }}</span></div>
+          {{ log.mensagem|truncatechars:140 }}
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted"><i class="bi bi-check-circle text-success"></i> Nenhum erro registrado.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

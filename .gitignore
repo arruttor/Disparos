@@ -1,0 +1,145 @@
+# =====================================================================
+#  SEGREDOS E CONFIGURAÇÃO LOCAL — nunca versionar
+# =====================================================================
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+.envrc
+
+# Credenciais de APIs (ex.: Google OAuth baixado do Cloud Console)
+credentials*.json
+client_secret*.json
+token*.json
+service-account*.json
+*-credentials.json
+*.secret
+secrets/
+.secrets/
+
+# Chaves e certificados
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+
+# =====================================================================
+#  DADOS — contêm informações de pacientes (LGPD)
+# =====================================================================
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+db.sqlite3*
+
+# Backups e dumps de banco
+*.sql
+*.sql.gz
+*.dump
+*.bak
+backups/
+
+# Uploads de usuários e arquivos gerados
+media/
+staticfiles/
+exports/
+relatorios/
+
+# Dados persistentes de containers (se mapeados para a pasta do projeto)
+docker-data/
+evolution_instances/
+pgdata/
+redisdata/
+
+# =====================================================================
+#  LOGS
+# =====================================================================
+*.log
+logs/
+
+# =====================================================================
+#  PYTHON
+# =====================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Empacotamento
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+.hypothesis/
+
+# Ferramentas de análise
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+
+# =====================================================================
+#  DOCKER — overrides locais costumam ter senhas
+# =====================================================================
+docker-compose.override.yml
+compose.override.yml
+
+# =====================================================================
+#  EDITORES / IDEs
+# =====================================================================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+
+# Configurações locais do Claude Code (permissões da máquina)
+.claude/settings.local.json
+
+# =====================================================================
+#  SISTEMA OPERACIONAL
+# =====================================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+# OneDrive (arquivos temporários de sincronização)
+~$*
+*.tmp
+# macOS
+.DS_Store
+._*
+# Linux
+.directory
+.Trash-*

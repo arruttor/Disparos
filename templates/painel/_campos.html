@@ -1,0 +1,11 @@
+{% for campo in form %}
+<div class="mb-2">
+  <label class="form-label small mb-1" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+  <input class="form-control form-control-sm {% if campo.errors %}is-invalid{% endif %}"
+         type="{{ campo.field.widget.input_type|default:'text' }}" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}"
+         {% if campo.field.widget.input_type != "password" and campo.value %}value="{{ campo.value }}"{% endif %}
+         autocomplete="off">
+  {% for e in campo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+  {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+</div>
+{% endfor %}
