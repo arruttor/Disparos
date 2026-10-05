@@ -5,7 +5,7 @@
 <div class="page-head">
   <div>
     <h1 class="page-title">Integrações</h1>
-    <p class="page-lead">Conecte os serviços que o assistente usa. O status é verificado ao abrir esta página e quando você pedir.</p>
+    <p class="page-lead">Conecte os serviços que o assistente usa. O status mostrado é o da última verificação — use "Verificar status" para consultar agora.</p>
   </div>
   <form method="post" action="{% url 'painel:verificar_tudo' %}">{% csrf_token %}
     <button class="btn btn--secondary"><i class="ph ph-arrows-clockwise"></i>Verificar status</button>
@@ -85,13 +85,13 @@
             {% else %}
               <form method="post" action="{% url 'painel:whatsapp_conectar' u.pk %}" class="inline-form">{% csrf_token %}
                 <label class="sr-only" for="numero-{{ u.pk }}">Número de {{ u.nome }}</label>
-                <input class="input input--mono" id="numero-{{ u.pk }}" name="numero" inputmode="numeric" placeholder="5581999999999" value="{{ u.whatsapp.numero|default:'' }}">
+                <input class="input input--mono" id="numero-{{ u.pk }}" name="numero" inputmode="numeric" placeholder="(31) 99999-0000" value="{{ u.whatsapp.numero|default:'' }}">
                 <button class="btn"><i class="ph ph-qr-code"></i>Conectar</button>
               </form>
               {% if u.whatsapp.status == "erro" and u.whatsapp.detalhe_status %}
               <div class="error"><i class="ph ph-warning-circle"></i>{{ u.whatsapp.detalhe_status }}</div>
               {% else %}
-              <p class="hint">Com DDI e DDD, só números. Em seguida, escaneie o QR code com o celular da unidade.</p>
+              <p class="hint">DDD + número. Para trocar o número, desconecte o atual primeiro. Em seguida, escaneie o QR code com o celular da unidade.</p>
               {% endif %}
             {% endif %}
           </article>
@@ -127,24 +127,53 @@
               <button class="btn btn--sm"><i class="ph ph-floppy-disk"></i>Salvar</button>
             </div>
           </form>
+          <div class="callout mt-4">
+            <i class="ph ph-arrow-u-down-left"></i>
+            <div>No Google Cloud, cadastre esta URI de redirecionamento <strong>exatamente</strong> assim:<br><code>{{ url_retorno_google }}</code></div>
+          </div>
         </div>
         <div>
           <h3 class="step-title"><span class="step-num">2</span>Contas por unidade</h3>
           {% for u in unidades %}
           <article class="unit">
-            <div class="unit__head unit__head--inline">
-              <div>
-                <div class="unit__name">{{ u.nome }}</div>
-                <div class="unit__meta">{{ u.conta_google.email|default:"Nenhuma conta conectada" }}</div>
+            {% if u.conta_google.token_json %}
+              <div class="unit__head">
+                <div>
+                  <div class="unit__name">{{ u.nome }}</div>
+                  <div class="unit__meta">{{ u.conta_google.email|default:"Conta conectada" }}{% if u.conta_google.ultima_verificacao %} · verificado {{ u.conta_google.ultima_verificacao|date:"d/m H:i" }}{% endif %}</div>
+                </div>
+                <span class="status status--{{ u.conta_google.status }}">{{ u.conta_google.get_status_display }}</span>
               </div>
-              <button class="btn btn--sm btn--secondary" disabled title="Disponível na próxima etapa"><i class="ph ph-google-logo"></i>Conectar</button>
-            </div>
+              {% if u.conta_google.status != "conectado" and u.conta_google.detalhe_status %}
+              <div class="error mt-0"><i class="ph ph-warning-circle"></i>{{ u.conta_google.detalhe_status }}</div>
+              {% endif %}
+              <div class="actions mt-3">
+                <a class="btn btn--sm" href="{% url 'painel:google_unidade' u.pk %}"><i class="ph ph-calendar-dots"></i>Calendários e teste</a>
+                {% if u.conta_google.status == "desconectado" or u.conta_google.status == "erro" %}
+                <form method="post" action="{% url 'painel:google_conectar' u.pk %}">{% csrf_token %}
+                  <button class="btn btn--sm btn--secondary"><i class="ph ph-arrows-clockwise"></i>Reconectar</button>
+                </form>
+                {% endif %}
+                <form method="post" action="{% url 'painel:google_desconectar' u.pk %}" data-confirmar="Desconectar o Google Agenda de {{ u.nome }}? O assistente deixa de consultar e marcar horários nessa unidade.">{% csrf_token %}
+                  <button class="btn btn--sm btn--danger"><i class="ph ph-plugs"></i>Desconectar</button>
+                </form>
+              </div>
+            {% else %}
+              <div class="unit__head unit__head--inline">
+                <div>
+                  <div class="unit__name">{{ u.nome }}</div>
+                  <div class="unit__meta">Nenhuma conta conectada</div>
+                </div>
+                <form method="post" action="{% url 'painel:google_conectar' u.pk %}">{% csrf_token %}
+                  <button class="btn btn--sm btn--secondary" {% if not google_configurado %}disabled title="Salve o Client ID e o Client secret primeiro"{% endif %}><i class="ph ph-google-logo"></i>Conectar</button>
+                </form>
+              </div>
+            {% endif %}
           </article>
           {% endfor %}
-          <div class="callout callout--info mt-3">
-            <i class="ph ph-hourglass-medium"></i>
-            <div>A conexão com o Google entra na próxima etapa. Os campos ao lado já podem ser preenchidos.</div>
-          </div>
+          {% if not google_configurado %}
+          <p class="hint mt-3">Salve o Client ID e o Client secret (passo 1) para liberar a conexão.</p>
+          {% endif %}
         </div>
       </div>
     </section>
@@ -155,7 +184,13 @@
         <span class="section__icon"><i class="ph ph-sparkle"></i></span>
         <div>
           <h2 class="section__title">Assistente de IA</h2>
-          <p class="section__desc">Modelo Claude, da Anthropic. Entende o que o paciente escreve e decide o próximo passo.</p>
+          <p class="section__desc">Entende o que o paciente escreve e decide o próximo passo. Hoje: <strong>{{ config.get_ia_provedor_display }}</strong> · <code>{{ config.ia_modelo }}</code>.</p>
+          {% if config.ia_provedor == "gemini" %}
+          <div class="callout callout--alerta mt-3">
+            <i class="ph ph-warning"></i>
+            <div><strong>Plano gratuito do Gemini:</strong> o Google pode usar as conversas para melhorar os produtos dele. Use só para testes, com <strong>pacientes fictícios</strong>. Com pacientes reais, use um plano pago (Gemini pago, Claude ou outro que não treine com os dados).</div>
+          </div>
+          {% endif %}
         </div>
         <span class="section__status status status--{{ config.ia_status }}">{{ config.get_ia_status_display }}</span>
       </header>

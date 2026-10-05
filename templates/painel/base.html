@@ -34,9 +34,11 @@
     </a>
 
     {% with nome=request.resolver_match.url_name %}
-    <nav class="nav" aria-label="Principal">
+    <nav class="nav" aria-label="Principal" data-rolagem-lateral>
       <a href="{% url 'painel:dashboard' %}" {% if nome == 'dashboard' %}aria-current="page"{% endif %}><i class="ph ph-squares-four"></i>Início</a>
+      <a href="{% url 'painel:conversas' %}" {% if 'conversa' in nome %}aria-current="page"{% endif %}><i class="ph ph-chats"></i>Conversas{% if conversas_aguardando %}<span class="nav__badge" title="{{ conversas_aguardando }} esperando resposta da equipe">{{ conversas_aguardando }}</span>{% endif %}</a>
       <a href="{% url 'painel:integracoes' %}" {% if 'integracoes' in nome or 'whatsapp' in nome %}aria-current="page"{% endif %}><i class="ph ph-plugs-connected"></i>Integrações</a>
+      <a href="{% url 'painel:assistente' %}" {% if 'assistente' in nome %}aria-current="page"{% endif %}><i class="ph ph-sparkle"></i>Assistente</a>
       <a href="{% url 'painel:logs' %}" {% if nome == 'logs' %}aria-current="page"{% endif %}><i class="ph ph-pulse"></i>Logs</a>
       <a href="{% url 'admin:index' %}"><i class="ph ph-address-book"></i>Cadastros</a>
     </nav>
@@ -87,6 +89,18 @@
   {% block conteudo %}{% endblock %}
 </main>
 {% endblock %}
+
+<dialog class="dialogo" id="dialogo-confirmar" aria-labelledby="dialogo-titulo">
+  <form method="dialog">
+    <div class="dialogo__icone"><i class="ph ph-warning"></i></div>
+    <h2 class="dialogo__titulo" id="dialogo-titulo">Tem certeza?</h2>
+    <p class="dialogo__texto" data-dialogo-texto></p>
+    <div class="dialogo__acoes">
+      <button class="btn btn--secondary" value="cancelar" autofocus>Voltar</button>
+      <button class="btn btn--perigo" value="ok" data-dialogo-ok>Confirmar</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="{% static 'js/painel.js' %}"></script>
 {% block scripts %}{% endblock %}

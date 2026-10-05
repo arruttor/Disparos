@@ -1,6 +1,7 @@
 """Configurações do projeto. Valores sensíveis vêm do arquivo .env."""
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -33,11 +34,34 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGIN
 # Chave usada para criptografar tokens/chaves de API salvos no banco (Fernet).
 CHAVE_CRIPTOGRAFIA = env_obrigatoria("CHAVE_CRIPTOGRAFIA")
 
-# URL pública do sistema (usada para webhooks e callback do OAuth do Google).
+# URL pela qual a Evolution chama o webhook (rede interna: host.docker.internal, nome do serviço Docker…).
 URL_PUBLICA = os.getenv("URL_PUBLICA", "http://localhost:8000").rstrip("/")
+
+# URL pela qual o NAVEGADOR acessa o painel. Usada no retorno do login do Google, que só
+# aceita http://localhost ou https — por isso é separada da URL_PUBLICA.
+# Precisa estar cadastrada, idêntica, nas "URIs de redirecionamento" do Google Cloud.
+URL_SITE = os.getenv("URL_SITE", "http://localhost:8000").rstrip("/")
 
 # Token que a Evolution envia na URL do webhook (impede chamadas de terceiros).
 WEBHOOK_TOKEN = env_obrigatoria("WEBHOOK_TOKEN")
+
+# O assistente responde em segundo plano (não segura o webhook). Nos testes roda direto, sem espera.
+ASSISTENTE_EM_SEGUNDO_PLANO = "test" not in sys.argv
+
+# Fila de tarefas (opcional). Com CELERY_BROKER_URL no .env, o assistente e os lembretes vão para o
+# Celery; sem ele, o assistente usa threads e os lembretes saem pelo painel/comando.
+# Nos testes a fila fica desligada (não depender de Redis); os testes da fila usam override_settings.
+CELERY_BROKER_URL = "" if "test" in sys.argv else os.getenv("CELERY_BROKER_URL", "")
+CELERY_TIMEZONE = "America/Recife"
+CELERY_TASK_ACKS_LATE = True  # tarefa só sai da fila depois de concluída: sobrevive a reinício do worker
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULE = {
+    "enviar-confirmacoes-e-lembretes": {
+        "task": "atendimento.tarefas.enviar_lembretes",
+        "schedule": 300.0,  # a cada 5 minutos (dentro da janela 8h–20h; fora dela não envia nada)
+    },
+}
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -99,6 +123,14 @@ else:
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            # SQLite só aceita uma gravação por vez. Webhook + painel + assistente gravam juntos:
+            # WAL deixa leituras não bloquearem gravações, IMMEDIATE reserva a gravação no início da
+            # transação (evita impasse) e o timeout maior espera a vez em vez de dar "database is locked".
+            "OPTIONS": {
+                "timeout": 20,
+                "transaction_mode": "IMMEDIATE",
+                "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+            },
         }
     }
 
@@ -117,6 +149,14 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Em produção os estáticos ganham o hash do conteúdo no nome (painel.a1b2c3.css):
+# CSS/JS novos nunca ficam presos no cache do navegador. Exige `collectstatic` a cada deploy.
+if not DEBUG:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"},
+    }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

@@ -37,7 +37,11 @@
     {% else %}
       <div class="qr-visual">
         <div id="area-qr">
-          {% if qrcode %}<div class="qr-frame"><img src="{{ qrcode }}" alt="QR code para conectar o WhatsApp de {{ instancia.unidade.nome }}"></div>{% endif %}
+          {% if qrcode %}
+          <div class="qr-frame"><img src="{{ qrcode }}" alt="QR code para conectar o WhatsApp de {{ instancia.unidade.nome }}"></div>
+          {% else %}
+          <div class="qr-frame qr-frame--gerando" role="status"><i class="ph ph-circle-notch"></i><span>Gerando o QR code…</span></div>
+          {% endif %}
         </div>
         <div id="sucesso" class="success-mark" hidden><i class="ph ph-check"></i></div>
       </div>
@@ -51,7 +55,7 @@
         {% if codigo_pareamento %}
         <div class="callout"><i class="ph ph-keyboard"></i><div>Prefere digitar? Use o código <span class="qr-code">{{ codigo_pareamento }}</span></div></div>
         {% endif %}
-        <p class="hint mt-3" id="dica-qr">O código expira em cerca de 40 segundos. <a href="">Gerar outro</a></p>
+        <p class="hint mt-3" id="dica-qr">O código se renova sozinho a cada 40 segundos. <a href="">Gerar outro agora</a></p>
         <div class="actions" id="acoes-sucesso" hidden><a class="btn" href="{% url 'painel:integracoes' %}#whatsapp">Voltar às integrações</a></div>
       </div>
     {% endif %}
@@ -62,9 +66,10 @@
 {% block scripts %}
 {% if instancia.status != "conectado" and not erro %}
 <script>
-  // Consulta o status a cada 3s até conectar.
+  // Consulta o status a cada 3s até conectar. Sem QR ainda: recarrega em 3s; com QR: renova em 40s (expira).
   (function () {
     var badge = document.getElementById("status");
+    var renovar = setTimeout(function () { location.reload(); }, {% if qrcode %}40000{% else %}3000{% endif %});
     var timer = setInterval(async function () {
       try {
         var r = await fetch("{% url 'painel:whatsapp_status' instancia.unidade_id %}");
@@ -73,6 +78,7 @@
         badge.className = "status status--" + d.status;
         if (d.status === "conectado") {
           clearInterval(timer);
+          clearTimeout(renovar);
           document.getElementById("area-qr").hidden = true;
           document.getElementById("sucesso").hidden = false;
           document.getElementById("titulo-qr").textContent = "Número conectado";

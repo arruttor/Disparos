@@ -57,9 +57,9 @@ e o Django rodando fora dele, use `URL_PUBLICA=http://host.docker.internal:8000`
 - [x] 1. Base: modelos, painel, logs, cliente da Evolution, webhook
 - [x] 2. Conexão real com WhatsApp (Docker + Evolution)
 - [x] Auditoria de segredos + redesign do front-end
-- [ ] 3. OAuth do Google Agenda
-- [ ] 4. Robô com IA (consulta à agenda)
-- [ ] 5. Agendamento (criar/remarcar/cancelar, cores de status)
+- [x] 3. OAuth do Google Agenda + horários livres
+- [ ] 4. Agendamento (marcar/confirmar/remarcar/cancelar, cores de status) — código pronto
+- [ ] 5. Robô com IA — código pronto, falta a chave da Anthropic
 - [ ] 6. Transferência para humano
 - [ ] 7. Confirmação D-1
 - [ ] 8. Deploy na VPS

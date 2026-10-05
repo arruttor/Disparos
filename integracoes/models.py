@@ -32,11 +32,62 @@ class Configuracao(models.Model):
     google_client_secret = CampoCriptografado(blank=True)
 
     # IA
-    ia_api_key = CampoCriptografado("API key da IA (Anthropic)", blank=True)
-    ia_modelo = models.CharField("modelo da IA", max_length=100, default="claude-haiku-4-5")
+    class Provedor(models.TextChoices):
+        ANTHROPIC = "anthropic", "Anthropic (Claude)"
+        GEMINI = "gemini", "Google Gemini"
+        COMPATIVEL = "compativel", "Outro compatível com OpenAI (Groq, OpenRouter…)"
+
+    ia_provedor = models.CharField("provedor da IA", max_length=20, choices=Provedor.choices, default=Provedor.ANTHROPIC)
+    ia_api_key = CampoCriptografado("API key da IA", blank=True)
+    ia_modelo = models.CharField("modelo da IA", max_length=100, default="claude-opus-5-5")
+    ia_modelo_reserva = models.CharField(
+        "modelo reserva", max_length=100, blank=True,
+        help_text="Usado quando o modelo principal está sobrecarregado (erro 503) ou sem cota. "
+                  "Em branco: Gemini usa gemini-3.5-flash; os demais, nenhum.",
+    )
+    ia_base_url = models.CharField(
+        "URL da API (só para “outro compatível”)", max_length=255, blank=True,
+        help_text="Ex.: https://api.groq.com/openai/v1",
+    )
     ia_status = models.CharField(max_length=20, choices=StatusConexao.choices, default=StatusConexao.NAO_CONFIGURADO)
     ia_ultima_verificacao = models.DateTimeField(null=True, blank=True)
     ia_detalhe_status = models.CharField(max_length=255, blank=True)
+
+    # Assistente (como ele se apresenta e o que mais precisa saber)
+    class Tratamento(models.TextChoices):
+        VOCE = "voce", "Você (próximo e cordial)"
+        SENHOR = "senhor", "O senhor / a senhora (formal)"
+
+    assistente_nome = models.CharField(
+        "nome do assistente", max_length=60, blank=True,
+        help_text="Ex.: Clara. Em branco, ele se apresenta como “assistente virtual da clínica”.",
+    )
+    assistente_tratamento = models.CharField(
+        "tratamento", max_length=10, choices=Tratamento.choices, default=Tratamento.VOCE
+    )
+    assistente_instrucoes = models.TextField(
+        "informações e instruções extras", blank=True,
+        help_text="Endereços, estacionamento, formas de pagamento, regras da clínica… "
+                  "Tudo o que o assistente pode responder. Ele nunca informa preços.",
+    )
+    espera_resposta_segundos = models.PositiveIntegerField(
+        "espera antes de responder (segundos)", default=8,
+        help_text="Pacientes costumam mandar várias mensagens seguidas; o assistente espera e responde tudo junto.",
+    )
+
+    # Confirmação na véspera e lembrete no dia
+    confirmacao_ativa = models.BooleanField(
+        "pedir confirmação na véspera", default=True,
+        help_text="Manda mensagem no dia anterior pedindo para o paciente confirmar a consulta.",
+    )
+    confirmacao_hora = models.TimeField(
+        "a partir de que horas enviar a confirmação", default="10:00",
+        help_text="Na véspera da consulta. Envios só acontecem entre 8h e 20h.",
+    )
+    lembrete_horas_antes = models.PositiveIntegerField(
+        "lembrete no dia (horas antes)", default=2,
+        help_text="Lembrete curto no dia da consulta. 0 = não enviar.",
+    )
 
     # Comportamento do robô
     pausa_robo_minutos = models.PositiveIntegerField(

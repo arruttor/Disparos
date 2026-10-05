@@ -1,0 +1,204 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Agenda · {{ unidade.nome }}{% endblock %}
+
+{% block conteudo %}
+<a class="link" href="{% url 'painel:integracoes' %}#google"><i class="ph ph-arrow-left"></i>Integrações</a>
+
+<div class="page-head mt-3">
+  <div>
+    <h1 class="page-title">Agenda · {{ unidade.nome }}</h1>
+    <p class="page-lead">{{ conta.email|default:"Conta Google conectada" }} — calendário de cada dentista, horários livres e consultas de teste.</p>
+  </div>
+  <span class="status status--{{ conta.status }}">{{ conta.get_status_display }}</span>
+</div>
+
+{% if erro_calendarios %}
+<div class="callout mt-0"><i class="ph ph-warning-circle"></i><div>{{ erro_calendarios }}</div></div>
+{% else %}
+<div class="grid grid--main reveal">
+  {# ---------------- Calendário de cada dentista ---------------- #}
+  <section class="panel">
+    <div class="panel__head">
+      <h2 class="panel__title"><i class="ph ph-user-list"></i>Calendário de cada dentista</h2>
+    </div>
+    {% if dentistas %}
+    <form method="post">
+      {% csrf_token %}
+      <ul class="rows">
+        {% for d in dentistas %}
+        <li class="row row--form">
+          <span class="row__icon"><i class="ph ph-tooth"></i></span>
+          <label class="row__title" for="cal-{{ d.pk }}">
+            {{ d.nome }}
+            {% if not d.qtd_horarios %}<a class="row__warn" href="{% url 'admin:core_dentista_change' d.pk %}"><i class="ph ph-warning"></i>sem horário de atendimento</a>{% endif %}
+          </label>
+          <select class="select" name="calendario_{{ d.pk }}" id="cal-{{ d.pk }}">
+            {% for c in calendarios %}
+            <option value="{{ c.id }}" {% if c.id == d.calendario_atual %}selected{% endif %}>{{ c.nome }}{% if c.principal %} (principal){% endif %}</option>
+            {% endfor %}
+          </select>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="panel__body">
+        <p class="hint mt-0">Recomendado: um calendário por dentista. Só aparecem calendários em que esta conta pode criar eventos.</p>
+        <div class="actions"><button class="btn btn--sm"><i class="ph ph-floppy-disk"></i>Salvar calendários</button></div>
+      </div>
+    </form>
+    {% else %}
+    <div class="empty divider-top">
+      <div class="empty__icon empty__icon--neutral"><i class="ph ph-user-plus"></i></div>
+      <p class="empty__title">Nenhum dentista nesta unidade</p>
+      <p class="empty__text">Cadastre os dentistas e os horários de atendimento para o assistente saber quando oferecer consultas.</p>
+      <a class="btn btn--sm" href="{% url 'admin:core_dentista_add' %}"><i class="ph ph-plus"></i>Cadastrar dentista</a>
+    </div>
+    {% endif %}
+  </section>
+
+  {# ---------------- Horários livres / marcar ---------------- #}
+  <section class="panel" id="horarios">
+    <div class="panel__head">
+      {% if remarcando %}
+      <h2 class="panel__title"><i class="ph ph-calendar-dots"></i>Remarcar consulta</h2>
+      <a class="link" href="{% url 'painel:google_unidade' unidade.pk %}"><i class="ph ph-x"></i>Cancelar</a>
+      {% else %}
+      <h2 class="panel__title"><i class="ph ph-clock-countdown"></i>Horários livres</h2>
+      {% endif %}
+    </div>
+    <div class="panel__body">
+      {% if remarcando %}
+      <div class="callout callout--info mt-0">
+        <i class="ph ph-arrows-left-right"></i>
+        <div><strong>{{ remarcando.paciente }}</strong> · {{ remarcando.procedimento.nome }} com {{ remarcando.dentista.nome }}<br>
+        hoje em <span class="num">{{ remarcando.inicio|date:"d/m H:i" }}</span>. Escolha o novo horário abaixo.</div>
+      </div>
+      {% endif %}
+
+      <form method="get" class="mt-3">
+        {% if remarcando %}
+          <input type="hidden" name="remarcar" value="{{ remarcando.pk }}">
+        {% else %}
+        <div class="field">
+          <label for="t-dentista">Dentista</label>
+          <select class="select" name="dentista" id="t-dentista" required>
+            {% for d in dentistas %}<option value="{{ d.pk }}" {% if filtro.dentista == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.nome }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="t-proc">Procedimento</label>
+          <select class="select" name="procedimento" id="t-proc" required>
+            {% for p in procedimentos %}<option value="{{ p.pk }}" {% if filtro.procedimento == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nome }} · {{ p.duracao_minutos }} min</option>{% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="field">
+          <label for="t-data">A partir de</label>
+          <input class="input input--mono" type="date" name="data" id="t-data" value="{{ filtro.data }}" min="{{ hoje|date:'Y-m-d' }}">
+        </div>
+        <button class="btn btn--block btn--secondary" {% if not dentistas %}disabled{% endif %}><i class="ph ph-magnifying-glass"></i>Ver próximos 5 dias</button>
+      </form>
+    </div>
+
+    {% if teste %}
+    <div class="divider-top panel__body">
+      {% if teste.sem_horarios %}
+        <div class="empty">
+          <div class="empty__icon empty__icon--warn"><i class="ph ph-clock-user"></i></div>
+          <p class="empty__title">{{ teste.dentista.nome }} não tem horário de atendimento</p>
+          <p class="empty__text">Sem os dias e horários em que o dentista atende, o assistente não tem como oferecer consultas. Cadastre-os na ficha do dentista.</p>
+          <a class="btn btn--sm" href="{% url 'admin:core_dentista_change' teste.dentista.pk %}"><i class="ph ph-plus"></i>Cadastrar horários</a>
+        </div>
+      {% elif teste.erro %}
+        <div class="error mt-3"><i class="ph ph-warning-circle"></i>{{ teste.erro }}</div>
+      {% elif teste.dias %}
+        {% if remarcando %}
+        <form method="post" action="{% url 'painel:consulta_remarcar' remarcando.pk %}">
+        {% else %}
+        <form method="post" action="{% url 'painel:consulta_marcar' unidade.pk %}">
+          <input type="hidden" name="dentista" value="{{ teste.dentista.pk }}">
+          <input type="hidden" name="procedimento" value="{{ teste.procedimento.pk }}">
+          <p class="hint mt-3">Para marcar uma consulta de teste, informe o paciente e clique num horário.</p>
+          <div class="patient-fields">
+            <div class="field">
+              <label for="p-nome">Nome do paciente</label>
+              <input class="input" id="p-nome" name="nome" required maxlength="150" placeholder="Ex.: Paciente Teste">
+            </div>
+            <div class="field">
+              <label for="p-tel">WhatsApp</label>
+              <input class="input input--mono" id="p-tel" name="telefone" required inputmode="tel" placeholder="(81) 99999-0000">
+            </div>
+          </div>
+        {% endif %}
+          {% csrf_token %}
+          <p class="hint">{{ teste.procedimento.nome }} · {{ teste.procedimento.duracao_minutos }} min com {{ teste.dentista.nome }}. Já descontados os eventos do Google e as consultas registradas.</p>
+          {% for dia, horarios in teste.dias.items %}
+          <div class="day">
+            <div class="day__label">{{ dia|date:"D, d/m"|lower }}</div>
+            <div class="slots">
+              {% for h in horarios %}<button class="slot slot--btn num" name="inicio" value="{{ h|date:'c' }}" title="{% if remarcando %}Remarcar para{% else %}Marcar em{% endif %} {{ h|date:'d/m H:i' }}">{{ h|date:"H:i" }}</button>{% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </form>
+      {% else %}
+        <div class="empty">
+          <div class="empty__icon empty__icon--neutral"><i class="ph ph-calendar-x"></i></div>
+          <p class="empty__title">Nenhum horário livre</p>
+          <p class="empty__text">Nos 5 dias a partir de {{ teste.data|date:"d/m" }}. Tente outra data ou confira os horários de atendimento do dentista.</p>
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+{# ---------------- Próximas consultas ---------------- #}
+<section class="panel section mt-4" id="consultas">
+  <div class="panel__head">
+    <h2 class="panel__title"><i class="ph ph-calendar-check"></i>Próximas consultas</h2>
+    <span class="hint mt-0">⏳ aguardando · ✅ confirmada · ❌ cancelada — as mesmas marcas aparecem no Google Agenda</span>
+  </div>
+  {% if proximas %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th scope="col">Quando</th><th scope="col">Paciente</th><th scope="col">Procedimento</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead>
+      <tbody>
+        {% for ag in proximas %}
+        <tr class="{% if ag.status == 'cancelado' %}is-muted{% endif %}">
+          <td class="col-time">{{ ag.inicio|date:"D d/m"|lower }} <strong>{{ ag.inicio|date:"H:i" }}</strong></td>
+          <td>{{ ag.paciente }}<div class="row__meta num">+{{ ag.paciente.telefone }}</div></td>
+          <td>{{ ag.procedimento.nome }}<div class="row__meta">{{ ag.dentista.nome }} · {{ ag.get_origem_display }}</div></td>
+          <td><span class="status status--{{ ag.status }}">{{ ag.get_status_display }}</span>
+            {% if ag.lembrete_enviado_em %}<div class="row__meta">pedido de confirmação: {{ ag.lembrete_enviado_em|date:"d/m H:i" }}</div>{% endif %}
+            {% if ag.aviso_dia_enviado_em %}<div class="row__meta">lembrete do dia: {{ ag.aviso_dia_enviado_em|date:"d/m H:i" }}</div>{% endif %}
+          </td>
+          <td>
+            {% if ag.status != "cancelado" %}
+            <div class="row-actions">
+              {% if ag.status == "aguardando" %}
+              <form method="post" action="{% url 'painel:consulta_confirmar' ag.pk %}">{% csrf_token %}
+                <button class="btn btn--sm btn--secondary" title="Confirmar"><i class="ph ph-check"></i><span class="hide-sm">Confirmar</span></button>
+              </form>
+              {% endif %}
+              <a class="btn btn--sm btn--ghost" href="{% url 'painel:google_unidade' unidade.pk %}?remarcar={{ ag.pk }}&data={{ ag.inicio|date:'Y-m-d' }}#horarios" title="Remarcar"><i class="ph ph-arrows-left-right"></i><span class="hide-sm">Remarcar</span></a>
+              <form method="post" action="{% url 'painel:consulta_cancelar' ag.pk %}" data-confirmar="Cancelar a consulta de {{ ag.paciente }} em {{ ag.inicio|date:'d/m H:i' }}?">{% csrf_token %}
+                <button class="btn btn--sm btn--danger" title="Cancelar"><i class="ph ph-x"></i><span class="hide-sm">Cancelar</span></button>
+              </form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty divider-top">
+    <div class="empty__icon empty__icon--neutral"><i class="ph ph-calendar-blank"></i></div>
+    <p class="empty__title">Nenhuma consulta marcada</p>
+    <p class="empty__text">Consultas marcadas pelo assistente ou pelo painel aparecem aqui.</p>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

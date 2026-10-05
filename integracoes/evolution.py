@@ -59,9 +59,14 @@ class EvolutionClient:
             corpo["number"] = numero
         return self._req("POST", "/instance/create", json=corpo)
 
-    def obter_qrcode(self, nome):
-        """Retorna dict com 'base64' (imagem do QR) e/ou 'pairingCode'."""
-        return self._req("GET", f"/instance/connect/{nome}")
+    def obter_qrcode(self, nome, numero=""):
+        """Retorna dict com 'base64' (imagem do QR) e/ou 'pairingCode'.
+
+        O código de pareamento é gerado para um número específico — passe o número
+        atual (importante ao trocar o número de uma unidade).
+        """
+        params = {"number": numero} if numero else None
+        return self._req("GET", f"/instance/connect/{nome}", params=params)
 
     def estado_conexao(self, nome):
         """Retorna 'open', 'connecting' ou 'close'."""

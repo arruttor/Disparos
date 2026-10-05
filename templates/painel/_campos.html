@@ -1,12 +1,31 @@
 {% for campo in form %}
+{% if campo.field.widget.input_type == "checkbox" %}
+<div class="field field--check">
+  <label class="check" for="{{ campo.id_for_label }}">
+    <input type="checkbox" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}" {% if campo.value %}checked{% endif %}>
+    <span>{{ campo.label|capfirst }}</span>
+  </label>
+  {% if campo.help_text %}<div class="hint">{{ campo.help_text }}</div>{% endif %}
+</div>
+{% else %}
 <div class="field">
   <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
-  <input class="input{% if campo.field.widget.input_type == 'password' or 'url' in campo.html_name or 'id' in campo.name %} input--mono{% endif %}"
-         type="{{ campo.field.widget.input_type|default:'text' }}" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}"
-         {% if campo.field.widget.input_type != "password" and campo.value %}value="{{ campo.value }}"{% endif %}
+  {% with tipo=campo.field.widget.input_type %}
+  {% if campo.field.widget.input_type == "select" %}
+  <select class="select" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}" {% if campo.errors %}aria-invalid="true"{% endif %}>
+    {% for valor, rotulo in campo.field.choices %}<option value="{{ valor }}" {% if campo.value|stringformat:"s" == valor|stringformat:"s" %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+  </select>
+  {% elif campo.field.widget.template_name == "django/forms/widgets/textarea.html" %}
+  <textarea class="input input--area" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}" rows="7" {% if campo.errors %}aria-invalid="true"{% endif %}>{{ campo.value|default:"" }}</textarea>
+  {% else %}
+  <input class="input{% if tipo == 'password' or 'url' in campo.html_name or 'id' in campo.name %} input--mono{% endif %}"
+         type="{{ tipo|default:'text' }}" name="{{ campo.html_name }}" id="{{ campo.id_for_label }}"
+         {% if tipo != "password" and campo.value is not None and campo.value != "" %}value="{{ campo.value }}"{% endif %}
          {% if campo.errors %}aria-invalid="true" aria-describedby="{{ campo.id_for_label }}-erro"{% endif %}
-         {% if campo.field.widget.input_type == "password" and campo.help_text %}placeholder="••••••••••••"{% endif %}
+         {% if tipo == "password" and campo.help_text %}placeholder="••••••••••••"{% endif %}
          autocomplete="off" spellcheck="false">
+  {% endif %}
+  {% endwith %}
   {% for e in campo.errors %}<div class="error" id="{{ campo.id_for_label }}-erro"><i class="ph ph-warning-circle"></i>{{ e }}</div>{% endfor %}
   {% if campo.help_text %}
     {% if campo.field.widget.input_type == "password" %}
@@ -16,4 +35,5 @@
     {% endif %}
   {% endif %}
 </div>
+{% endif %}
 {% endfor %}

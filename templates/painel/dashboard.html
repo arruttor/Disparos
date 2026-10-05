@@ -23,7 +23,7 @@
     <div class="kpi {% if conversas_humano %}kpi--warn{% endif %}">
       <div class="kpi__label"><i class="ph ph-hand-waving"></i>Aguardando a equipe</div>
       <div class="kpi__value">{{ conversas_humano }}</div>
-      <div class="kpi__hint">{% if conversas_humano %}precisam de resposta{% else %}nenhuma pendente{% endif %}</div>
+      <div class="kpi__hint">{% if conversas_humano %}<a href="{% url 'painel:conversas' %}?filtro=equipe">abrir conversas →</a>{% else %}nenhuma pendente{% endif %}</div>
     </div>
     <div class="kpi">
       <div class="kpi__label"><i class="ph ph-calendar-dots"></i>Consultas hoje</div>

@@ -44,7 +44,18 @@ services:
     volumes:
       - evolution_redis:/data
 
+  # Redis da fila de tarefas do Django (Celery) — separado do Redis da Evolution.
+  # Exposto só para esta máquina (127.0.0.1); em produção não tem porta publicada.
+  fila-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - fila_redis:/data
+
 volumes:
+  fila_redis:
   evolution_instances:
   evolution_db:
   evolution_redis:

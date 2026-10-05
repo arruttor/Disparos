@@ -1,0 +1,284 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Conversas{% endblock %}
+
+{% block conteudo %}
+<div class="inbox{% if selecionada %} inbox--aberta{% endif %}">
+  {# ======================= Lista ======================= #}
+  <aside class="panel inbox__lista" aria-label="Conversas">
+    <div class="inbox__topo">
+      <h1 class="inbox__titulo">Conversas</h1>
+      <form method="get" class="inbox__busca" role="search">
+        <input type="hidden" name="filtro" value="{{ filtro }}">
+        {% if unidades|length > 1 %}
+        <label class="sr-only" for="f-unidade">Unidade</label>
+        <select class="select select--sm" name="unidade" id="f-unidade" onchange="this.form.submit()">
+          <option value="">Todas as unidades</option>
+          {% for u in unidades %}<option value="{{ u.pk }}" {% if unidade_id == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.nome }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <label class="sr-only" for="f-q">Buscar</label>
+        <input class="input input--sm" id="f-q" name="q" value="{{ busca }}" placeholder="Nome ou telefone">
+      </form>
+      <nav class="abas" aria-label="Filtro">
+        {% for chave, rotulo, descricao, total in filtros %}
+        <a class="aba" href="?filtro={{ chave }}{% if unidade_id %}&unidade={{ unidade_id }}{% endif %}{% if busca %}&q={{ busca|urlencode }}{% endif %}"
+           title="{{ descricao }}" aria-label="{{ descricao }} ({{ total }})" {% if chave == filtro %}aria-current="page"{% endif %}>
+          {{ rotulo }}<span class="aba__total num">{{ total }}</span>
+        </a>
+        {% endfor %}
+      </nav>
+    </div>
+
+    {% if lista %}
+    <ul class="conv-lista">
+      {% for c in lista %}
+      <li>
+        <a class="conv{% if selecionada and c.pk == selecionada.pk %} is-ativa{% endif %}{% if c.aguardando_resposta %} is-pendente{% endif %}"
+           href="?{{ querystring }}&c={{ c.pk }}">
+          <span class="conv__avatar">{{ c.paciente.nome|default:"?"|slice:":1"|upper }}</span>
+          <span class="conv__corpo">
+            <span class="conv__linha">
+              <span class="conv__nome">{{ c.paciente.nome|default:c.paciente.telefone }}</span>
+              <time class="conv__hora num">{% if c.ultima_mensagem_em %}{% if c.ultima_mensagem_em|date:"Ymd" == hoje|date:"Ymd" %}{{ c.ultima_mensagem_em|date:"H:i" }}{% else %}{{ c.ultima_mensagem_em|date:"d/m" }}{% endif %}{% endif %}</time>
+            </span>
+            <span class="conv__previa">
+              {% if c.ultima_mensagem_origem == "robo" %}<i class="ph ph-sparkle" title="Assistente"></i>{% elif c.ultima_mensagem_origem == "humano" %}<i class="ph ph-user" title="Equipe"></i>{% endif %}
+              {{ c.ultima_mensagem_texto|default:"Sem mensagens" }}
+            </span>
+            <span class="conv__meta">
+              <span class="status status--conv-{{ c.status }}">{{ c.get_status_display }}</span>
+              {% if unidades|length > 1 and not unidade_id %}<span>· {{ c.unidade.nome }}</span>{% endif %}
+              {% if c.aguardando_resposta %}<span class="conv__pendente">esperando resposta</span>{% endif %}
+            </span>
+          </span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty">
+      <div class="empty__icon {% if filtro == 'equipe' %}{% else %}empty__icon--neutral{% endif %}"><i class="ph {% if filtro == 'equipe' %}ph-check-circle{% else %}ph-chats{% endif %}"></i></div>
+      <p class="empty__title">{% if busca %}Nada encontrado{% elif filtro == 'equipe' %}Nenhuma conversa com a equipe{% else %}Nenhuma conversa aqui{% endif %}</p>
+      <p class="empty__text">{% if busca %}Tente outro nome ou telefone.{% elif filtro == 'equipe' %}Quando o assistente transferir um paciente, ele aparece aqui.{% else %}As conversas do WhatsApp aparecem aqui assim que chegam.{% endif %}</p>
+    </div>
+    {% endif %}
+  </aside>
+
+  {# ======================= Conversa ======================= #}
+  <section class="panel inbox__conversa" aria-label="Conversa">
+    {% if selecionada %}
+    <header class="cv-topo">
+      <a class="btn btn--sm btn--ghost cv-voltar" href="?{{ querystring }}" aria-label="Voltar para a lista"><i class="ph ph-arrow-left"></i></a>
+      <div class="cv-topo__info">
+        <h2 class="cv-topo__nome">{{ selecionada.paciente.nome|default:"Paciente sem nome" }}</h2>
+        <p class="cv-topo__meta"><span class="num">+{{ selecionada.paciente.telefone }}</span> · {{ selecionada.unidade.nome }}
+          · <span class="status status--conv-{{ selecionada.status }}" id="cv-status">{{ selecionada.get_status_display }}</span>
+          {% if selecionada.atendente %}<span id="cv-atendente">· com {{ selecionada.atendente }}</span>{% endif %}
+        </p>
+      </div>
+      <div class="cv-topo__acoes">
+        {% if selecionada.status == "robo" %}
+        <form method="post" action="{% url 'painel:conversa_assumir' selecionada.pk %}">{% csrf_token %}
+          <input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+          <button class="btn btn--sm"><i class="ph ph-hand"></i>Assumir</button>
+        </form>
+        {% elif selecionada.status == "humano" %}
+        <form method="post" action="{% url 'painel:conversa_devolver' selecionada.pk %}">{% csrf_token %}
+          <input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+          <button class="btn btn--sm btn--secondary"><i class="ph ph-sparkle"></i>Devolver ao assistente</button>
+        </form>
+        {% endif %}
+        {% if selecionada.status != "encerrada" %}
+        <form method="post" action="{% url 'painel:conversa_encerrar' selecionada.pk %}" data-confirmar="Encerrar a conversa com {{ selecionada.paciente }}? Se o paciente escrever de novo, abre uma conversa nova com o assistente.">{% csrf_token %}
+          <input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+          <button class="btn btn--sm btn--ghost"><i class="ph ph-archive"></i>Encerrar</button>
+        </form>
+        {% endif %}
+      </div>
+    </header>
+
+    {% if selecionada.status == "humano" and selecionada.motivo_transferencia %}
+    <div class="cv-aviso"><i class="ph ph-info"></i>Motivo: {{ selecionada.motivo_transferencia }}</div>
+    {% endif %}
+
+    <div class="cv-corpo">
+      <div class="cv-mensagens" id="cv-mensagens" aria-live="polite"></div>
+      <aside class="cv-lado">
+        <h3 class="cv-lado__titulo">Próximas consultas</h3>
+        {% for a in proximas %}
+        <div class="cv-consulta">
+          <span class="status status--{{ a.status }}">{{ a.get_status_display }}</span>
+          <div class="cv-consulta__quando num">{{ a.inicio|date:"D d/m H:i"|lower }}</div>
+          <div class="cv-consulta__o-que">{{ a.procedimento.nome }} · {{ a.dentista.nome }}</div>
+        </div>
+        {% empty %}
+        <p class="hint mt-0">Nenhuma consulta marcada.</p>
+        {% endfor %}
+      </aside>
+    </div>
+
+    {% if selecionada.status == "encerrada" %}
+    <div class="cv-encerrada"><i class="ph ph-archive"></i>Conversa encerrada. Se o paciente escrever de novo, abre uma conversa nova.</div>
+    {% else %}
+    <form class="cv-escrever" id="cv-form" data-modo="responder">
+      {% csrf_token %}
+      <div class="cv-escrever__modos" role="tablist">
+        <button type="button" class="cv-modo" data-modo="responder" aria-pressed="true"><i class="ph ph-whatsapp-logo"></i>Responder</button>
+        <button type="button" class="cv-modo" data-modo="nota" aria-pressed="false"><i class="ph ph-note-pencil"></i>Nota interna</button>
+      </div>
+      <div class="cv-escrever__linha">
+        <label class="sr-only" for="cv-texto">Mensagem</label>
+        <textarea class="input cv-escrever__texto" id="cv-texto" name="texto" rows="2" required
+                  placeholder="Escreva a resposta — ela sai pelo WhatsApp da unidade"></textarea>
+        <button class="btn cv-escrever__enviar" aria-label="Enviar"><i class="ph ph-paper-plane-right"></i></button>
+      </div>
+      <p class="hint mt-2" id="cv-dica">{% if selecionada.status == "robo" %}Ao responder, você assume a conversa e o assistente para até você devolver.{% else %}Enter envia · Shift+Enter quebra a linha.{% endif %}</p>
+    </form>
+    {% endif %}
+    {{ dados_conversa|json_script:"cv-dados" }}
+
+    {% else %}
+    <div class="empty inbox__vazio">
+      <div class="empty__icon empty__icon--neutral"><i class="ph ph-chat-circle-dots"></i></div>
+      <p class="empty__title">Selecione uma conversa</p>
+      <p class="empty__text">Escolha um paciente na lista para ver o histórico, responder ou devolver ao assistente.</p>
+    </div>
+    {% endif %}
+  </section>
+</div>
+<span hidden id="assinatura-lista">{{ assinatura_lista }}</span>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+  var assinatura = document.getElementById("assinatura-lista").textContent;
+  var campo = document.getElementById("cv-texto");
+
+  function digitando() { return campo && campo.value.trim() !== ""; }
+  function recarregarSeMudou(nova) {
+    if (nova && nova !== assinatura && !digitando()) location.reload();
+  }
+
+  {% if not selecionada %}
+  // Sem conversa aberta: só observa se a lista mudou.
+  setInterval(async function () {
+    try {
+      var r = await fetch("{% url 'painel:conversas_assinatura' %}");
+      recarregarSeMudou((await r.json()).assinatura_lista);
+    } catch (e) { /* tenta de novo */ }
+  }, 10000);
+  {% else %}
+  var lista = document.getElementById("cv-mensagens");
+  var dados = JSON.parse(document.getElementById("cv-dados").textContent);
+  var ultimoId = 0;
+  var NOMES = {paciente: "Paciente", robo: "Assistente", humano: "Equipe", nota: "Nota interna"};
+
+  function bolha(m) {
+    var el = document.createElement("div");
+    el.className = "msg msg--" + m.origem + (m.falhou ? " msg--falhou" : "");
+    var texto = document.createElement("div");
+    texto.className = "msg__texto";
+    // *negrito* do WhatsApp → <strong>, montado com nós de texto (nada de innerHTML com conteúdo de terceiros)
+    m.texto.split(/(\*[^*\n]+\*)/g).forEach(function (parte) {
+      if (/^\*[^*\n]+\*$/.test(parte)) {
+        var b = document.createElement("strong"); b.textContent = parte.slice(1, -1); texto.appendChild(b);
+      } else if (parte) { texto.appendChild(document.createTextNode(parte)); }
+    });
+    var meta = document.createElement("div");
+    meta.className = "msg__meta";
+    var quem = NOMES[m.origem] || m.origem;
+    if (m.autor && (m.origem === "humano" || m.origem === "nota")) quem += " · " + m.autor;
+    meta.textContent = quem + " · " + m.hora + (m.falhou ? " · ⚠ não enviada" : "");
+    el.appendChild(texto); el.appendChild(meta);
+    return el;
+  }
+
+  function adicionar(mensagens) {
+    var noFim = lista.scrollHeight - lista.scrollTop - lista.clientHeight < 80;
+    mensagens.forEach(function (m) {
+      if (m.id <= ultimoId) return;
+      lista.appendChild(bolha(m));
+      ultimoId = m.id;
+    });
+    if (noFim || mensagens.length) lista.scrollTop = lista.scrollHeight;
+  }
+
+  function atualizarStatus(d) {
+    var st = document.getElementById("cv-status");
+    if (st && d.status_rotulo) { st.textContent = d.status_rotulo; st.className = "status status--conv-" + d.status; }
+  }
+
+  if (!dados.mensagens.length) {
+    var vazio = document.createElement("p"); vazio.className = "hint"; vazio.textContent = "Ainda não há mensagens.";
+    lista.appendChild(vazio);
+  }
+  adicionar(dados.mensagens);
+  lista.scrollTop = lista.scrollHeight;
+
+  // Mensagens novas a cada 4 s
+  setInterval(async function () {
+    try {
+      var r = await fetch("{% url 'painel:conversa_atualizacoes' selecionada.pk %}?depois=" + ultimoId);
+      var d = await r.json();
+      adicionar(d.mensagens);
+      atualizarStatus(d);
+      // A mudança na lista veio desta conversa (já mostrada aqui): não precisa recarregar por ela.
+      if (d.mensagens.length) assinatura = d.assinatura_lista;
+      if (d.status !== dados.status && !digitando()) location.reload();  // ex.: assistente transferiu
+    } catch (e) { /* tenta de novo */ }
+  }, 4000);
+
+  var form = document.getElementById("cv-form");
+  if (form) {
+    var botao = form.querySelector(".cv-escrever__enviar");
+    var dica = document.getElementById("cv-dica");
+    var URLS = {responder: "{% url 'painel:conversa_responder' selecionada.pk %}", nota: "{% url 'painel:conversa_nota' selecionada.pk %}"};
+    var PLACEHOLDER = {responder: "Escreva a resposta — ela sai pelo WhatsApp da unidade",
+                       nota: "Nota interna — só a equipe vê (não vai para o paciente nem para a IA)"};
+
+    form.querySelectorAll(".cv-modo").forEach(function (b) {
+      b.addEventListener("click", function () {
+        form.dataset.modo = b.dataset.modo;
+        form.querySelectorAll(".cv-modo").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        campo.placeholder = PLACEHOLDER[b.dataset.modo];
+        form.classList.toggle("cv-escrever--nota", b.dataset.modo === "nota");
+        campo.focus();
+      });
+    });
+
+    campo.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); form.requestSubmit(); }
+    });
+
+    form.addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      if (!campo.value.trim() || botao.disabled) return;
+      botao.disabled = true;
+      var estavaComAssistente = dados.status === "robo" && form.dataset.modo === "responder";
+      try {
+        var r = await fetch(URLS[form.dataset.modo], {method: "POST", body: new FormData(form)});
+        var d = await r.json();
+        if (d.mensagens) adicionar(d.mensagens);
+        if (d.erro) { dica.textContent = "⚠ " + d.erro; dica.className = "error mt-2"; }
+        else { campo.value = ""; dica.textContent = "Enter envia · Shift+Enter quebra a linha."; dica.className = "hint mt-2"; }
+        if (estavaComAssistente && !d.erro) location.reload();  // passou a ser da equipe: atualiza botões
+      } catch (e) {
+        dica.textContent = "⚠ Sem resposta do servidor. Tente de novo."; dica.className = "error mt-2";
+      } finally { botao.disabled = false; campo.focus(); }
+    });
+  }
+
+  setInterval(async function () {
+    try {
+      var r = await fetch("{% url 'painel:conversas_assinatura' %}");
+      var nova = (await r.json()).assinatura_lista;
+      // Lista mudou por causa de outra conversa: recarrega só se o usuário não estiver digitando.
+      if (nova !== assinatura && !digitando()) { assinatura = nova; location.reload(); }
+    } catch (e) { /* tenta de novo */ }
+  }, 15000);
+  {% endif %}
+})();
+</script>
+{% endblock %}
