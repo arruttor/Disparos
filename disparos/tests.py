@@ -46,6 +46,72 @@ class DisparosTests(TestCase):
     def liberar_intervalo(self):
         ConfiguracaoDisparo.objects.filter(pk=1).update(proxima_tentativa_em=None)
 
+    def test_exclusao_preserva_historico_reservas_e_oculta_cadastro(self):
+        tentativa = self.reservar()
+        usuario = User.objects.create_superuser('excluir', 'excluir@example.com', 'senha-teste')
+        self.client.force_login(usuario)
+        url = reverse('painel:excluir_contato', args=[self.contato.pk])
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.assertRedirects(self.client.post(url), reverse('painel:pacientes'))
+        self.contato.refresh_from_db()
+        excluido_em = self.contato.excluido_em
+        self.assertIsNotNone(excluido_em)
+        self.assertFalse(self.contato.selecionado)
+        self.assertIsNotNone(self.contato.automatico_reservado_em)
+        self.assertTrue(NumeroReservado.objects.filter(contato=self.contato).exists())
+        self.assertTrue(Tentativa.objects.filter(pk=tentativa.pk).exists())
+        self.assertNotContains(self.client.get(reverse('painel:pacientes')), 'Maria Silva')
+        self.assertEqual(self.client.get(reverse('painel:contato', args=[self.contato.pk])).status_code, 404)
+        self.client.post(url)
+        self.contato.refresh_from_db()
+        self.assertEqual(self.contato.excluido_em, excluido_em)
+
+    def test_exclusao_exige_superusuario(self):
+        url = reverse('painel:excluir_contato', args=[self.contato.pk])
+        self.assertEqual(self.client.post(url).status_code, 302)
+        usuario = User.objects.create_user('comum', password='senha-teste')
+        self.client.force_login(usuario)
+        self.assertIn(self.client.post(url).status_code, (302, 403))
+        self.contato.refresh_from_db()
+        self.assertIsNone(self.contato.excluido_em)
+
+    def test_reimportacao_e_selecao_nao_restauram_excluido(self):
+        usuario = User.objects.create_superuser('excluir', 'excluir@example.com', 'senha-teste')
+        self.client.force_login(usuario)
+        self.client.post(reverse('painel:excluir_contato', args=[self.contato.pk]))
+        arquivo = SimpleUploadedFile('pacientes.csv', b'ID,Nome,Celular\n1,Maria Silva,81988887777\n')
+        importar(arquivo, self.unidade)
+        self.client.post(reverse('painel:selecionar'), {'contatos': [self.contato.pk], 'acao': 'incluir'})
+        self.contato.refresh_from_db()
+        self.assertIsNotNone(self.contato.excluido_em)
+        self.assertFalse(self.contato.selecionado)
+        self.assertIsNone(self.reservar())
+        self.assertIsNone(self.reservar(manual=True, teste=True))
+        self.assertEqual(Contato.objects.count(), 1)
+
+    def test_exclusao_impede_execucao_reservada(self):
+        tentativa = self.reservar()
+        Contato.objects.filter(pk=self.contato.pk).update(excluido_em=timezone.now(), selecionado=False)
+        executar_tentativa(tentativa.pk, self.api)
+        self.api.verificar_numeros.assert_not_called()
+        self.api.enviar_texto.assert_not_called()
+        tentativa.refresh_from_db()
+        self.assertEqual(tentativa.status, Tentativa.Status.PAUSADO)
+
+    def test_exclusao_durante_validacao_impede_envio(self):
+        tentativa = self.reservar()
+        resultado = self.api.verificar_numeros.return_value
+
+        def excluir_durante_consulta(*args):
+            Contato.objects.filter(pk=self.contato.pk).update(excluido_em=timezone.now(), selecionado=False)
+            return resultado
+
+        self.api.verificar_numeros.side_effect = excluir_durante_consulta
+        executar_tentativa(tentativa.pk, self.api)
+        self.api.enviar_texto.assert_not_called()
+        tentativa.refresh_from_db()
+        self.assertEqual(tentativa.status, Tentativa.Status.PAUSADO)
+
     def reservar(self, contato=None, **kwargs):
         return reservar((contato or self.contato).pk, **kwargs)
 

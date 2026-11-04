@@ -28,6 +28,8 @@
 
 ### Estado da adaptação
 
+- Exclusão de pacientes (04/11/2026): botão na lista e na ficha, confirmação pelo diálogo do painel, POST exclusivo para superusuário. Exclusão lógica via `Contato.excluido_em` (migração `disparos.0002_contato_excluido_em`) retira da lista/contadores e bloqueia reservas manuais/automáticas. Histórico, identidade e números reservados permanecem; reimportação e seleção em lote não reativam excluídos. Execução verifica exclusão antes da validação e antes de iniciar envio; chamada já iniciada não pode ser desfeita. Edição de formulário antigo não restaura o cadastro. Migração ainda não aplicada no banco local de pacientes nem no Railway. 212 testes passando, check sem erros e nenhuma migração por gerar. Prévia isolada com dados fictícios conferida no navegador em claro/escuro e 375 px, sem alterar pacientes reais.
+
 - PostgreSQL Railway (04/11/2026): serviço Postgres com volume criado pelo responsável. Adicionado `psycopg[binary]>=3.3,<4` para permitir o backend PostgreSQL já existente em settings. A conexão depende das cinco variáveis `DATABASE_*` no serviço Disparos; criar o serviço de banco não conecta o Django automaticamente. Não trocar antes de conferir e preservar eventuais dados/reservas do SQLite remoto. Preparação local não transfere dados nem altera o Railway.
 - Responsável confirmou que no Railway só criou o administrador. Verificação local desta preparação: 207 testes passando no SQLite, `check` sem erros, nenhuma migração nova e importação do backend PostgreSQL com psycopg 3.3.7 concluída. Conexão ao PostgreSQL remoto ainda não testada. Nenhuma alteração visual.
 

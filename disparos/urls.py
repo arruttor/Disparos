@@ -8,6 +8,7 @@ urlpatterns = [
     path('pacientes/', disparos.pacientes, name='pacientes'),
     path('pacientes/selecao/', disparos.selecionar, name='selecionar'),
     path('pacientes/<int:contato_id>/', disparos.contato, name='contato'),
+    path('pacientes/<int:contato_id>/excluir/', disparos.excluir_contato, name='excluir_contato'),
     path('pacientes/<int:contato_id>/tentar/', disparos.tentar_manualmente, name='tentar_manualmente'),
     path('disparos/controle/', disparos.alternar, name='disparos_controle'),
     path('disparos/teste/', disparos.enviar_teste, name='enviar_teste'),

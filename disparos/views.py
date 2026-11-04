@@ -33,8 +33,8 @@ def inicio(request):
                 messages.success(request, 'Configuração salva. A fila permanece pausada.')
         return redirect('painel:dashboard')
     return render(request, 'disparos/inicio.html', {'config': config, 'form': form,
-        'form_teste': FormTeste(), 'total': Contato.objects.count(), 'pendentes': elegiveis(config).count(),
-        'enviados': Tentativa.objects.filter(status='enviado').count(), 'revisar': Contato.objects.exclude(revisao='').count(),
+        'form_teste': FormTeste(), 'total': Contato.objects.filter(excluido_em__isnull=True).count(), 'pendentes': elegiveis(config).count(),
+        'enviados': Tentativa.objects.filter(status='enviado').count(), 'revisar': Contato.objects.filter(excluido_em__isnull=True).exclude(revisao='').count(),
         'ultimos': Tentativa.objects.select_related('contato')[:8],
         'instancia': InstanciaWhatsApp.objects.filter(unidade_id=config.unidade_id).first(),
         'agendador_recente': bool(config.ultima_execucao and config.ultima_execucao > timezone.now() - timedelta(minutes=3))})
@@ -71,7 +71,7 @@ def pacientes(request):
         else:
             messages.success(request, f'{novos} novos; {atualizados} atualizados; {revisao} precisam de revisão. Reservas anteriores preservadas.')
             return redirect('painel:pacientes')
-    contatos = Contato.objects.select_related('unidade')
+    contatos = Contato.objects.filter(excluido_em__isnull=True).select_related('unidade')
     busca, filtro, grupo = request.GET.get('q', '').strip(), request.GET.get('estado', ''), request.GET.get('grupo', '')
     if busca:
         contatos = contatos.filter(Q(nome__icontains=busca) | Q(telefone_original__icontains=busca) | Q(id_origem=busca))
@@ -89,19 +89,19 @@ def pacientes(request):
     query.pop('pagina', None)
     return render(request, 'disparos/pacientes.html', {'form': form,
         'pagina': Paginator(contatos, 50).get_page(request.GET.get('pagina')), 'busca': busca, 'estado': filtro, 'grupo': grupo,
-        'grupos': Contato.objects.values_list('grupo', flat=True).distinct().order_by('grupo'), 'querystring': query.urlencode()})
+        'grupos': Contato.objects.filter(excluido_em__isnull=True).values_list('grupo', flat=True).distinct().order_by('grupo'), 'querystring': query.urlencode()})
 
 
 @superusuario
 def contato(request, contato_id):
-    paciente = get_object_or_404(Contato, pk=contato_id)
+    paciente = get_object_or_404(Contato, pk=contato_id, excluido_em__isnull=True)
     form = FormContato(request.POST or None, instance=paciente)
     if request.method == 'POST' and form.is_valid():
         with transaction.atomic():
             ConfiguracaoDisparo.objects.select_for_update().get(pk=1)
             editado = form.save(commit=False)
             # Não gravar o snapshot antigo de automatico_reservado_em carregado antes do bloqueio.
-            Contato.objects.filter(pk=paciente.pk).update(nome=editado.nome, telefone=editado.telefone,
+            Contato.objects.filter(pk=paciente.pk, excluido_em__isnull=True).update(nome=editado.nome, telefone=editado.telefone,
                 chave_numero=editado.chave_numero, selecionado=editado.selecionado, revisao=editado.revisao)
         messages.success(request, 'Cadastro atualizado. Isso não libera uma nova tentativa automática.')
         return redirect('painel:contato', contato_id=paciente.pk)
@@ -113,6 +113,21 @@ def contato(request, contato_id):
             pass
     return render(request, 'disparos/contato.html', {'paciente': paciente, 'form': form,
         'tentativas': paciente.tentativas.all(), 'previa': previa, 'ultima': paciente.tentativas.first()})
+
+
+@superusuario
+@require_POST
+def excluir_contato(request, contato_id):
+    ConfiguracaoDisparo.obter()
+    with transaction.atomic():
+        ConfiguracaoDisparo.objects.select_for_update().get(pk=1)
+        paciente = get_object_or_404(Contato.objects.select_for_update(), pk=contato_id)
+        if not paciente.excluido_em:
+            paciente.excluido_em = timezone.now()
+            paciente.selecionado = False
+            paciente.save(update_fields=['excluido_em', 'selecionado'])
+    messages.success(request, 'Paciente excluído da lista e de novos envios. Histórico e bloqueios preservados. Um envio já iniciado não pode ser desfeito.')
+    return redirect('painel:pacientes')
 
 
 @superusuario
@@ -197,6 +212,6 @@ def selecionar(request):
     else:
         with transaction.atomic():
             ConfiguracaoDisparo.objects.select_for_update().get(pk=1)
-            quantidade = Contato.objects.filter(pk__in=ids).update(selecionado=request.POST.get('acao') == 'incluir')
+            quantidade = Contato.objects.filter(pk__in=ids, excluido_em__isnull=True).update(selecionado=request.POST.get('acao') == 'incluir')
         messages.success(request, f'{quantidade} cadastro(s) atualizados. Bloqueios anteriores permanecem.')
     return redirect('painel:pacientes')

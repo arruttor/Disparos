@@ -38,7 +38,7 @@ def horarios_validos(texto):
 
 def elegiveis(config):
     return Contato.objects.filter(unidade_id=config.unidade_id, selecionado=True,
-        automatico_reservado_em__isnull=True, revisao='').exclude(chave_numero='')
+        excluido_em__isnull=True, automatico_reservado_em__isnull=True, revisao='').exclude(chave_numero='')
 
 
 def finalizar(tentativa, status, detalhe):
@@ -51,6 +51,8 @@ def reservar(contato_id, *, manual=False, autor=None, agora=None, agendado=False
     with transaction.atomic():
         config = ConfiguracaoDisparo.objects.select_for_update().get(pk=1)
         contato = Contato.objects.select_for_update().get(pk=contato_id)
+        if contato.excluido_em:
+            return None
         if not 1 <= config.tamanho_lote <= 50 or not 60 <= config.intervalo_segundos <= 3600:
             return None
         if not config.unidade_id or config.unidade_id != contato.unidade_id:
@@ -119,6 +121,9 @@ def executar_tentativa(tentativa_id, client=None):
         tentativa = Tentativa.objects.select_for_update().get(pk=tentativa_id)
         if tentativa.status != Tentativa.Status.RESERVADO or tentativa.chamada_iniciada_em:
             return
+        if Contato.objects.filter(pk=tentativa.contato_id, excluido_em__isnull=False).exists():
+            finalizar(tentativa, Tentativa.Status.PAUSADO, 'Paciente excluído antes da validação. Nenhum envio iniciado.')
+            return
         if not tentativa.manual and not config.ativo:
             finalizar(tentativa, Tentativa.Status.PAUSADO, 'Fila pausada antes da validação. Retomada somente manual.')
             return
@@ -150,6 +155,9 @@ def executar_tentativa(tentativa_id, client=None):
     with transaction.atomic():
         config = ConfiguracaoDisparo.objects.select_for_update().get(pk=1)
         dono = NumeroReservado.objects.filter(chave=chave(numero)).first()
+        if Contato.objects.filter(pk=tentativa.contato_id, excluido_em__isnull=False).exists():
+            finalizar(tentativa, Tentativa.Status.PAUSADO, 'Paciente excluído antes do envio.')
+            return
         if dono and dono.contato_id != tentativa.contato_id:
             finalizar(tentativa, Tentativa.Status.BLOQUEADO, 'Número validado já reservado para outro paciente.')
             return

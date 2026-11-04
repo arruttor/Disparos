@@ -52,6 +52,7 @@
 <td>{% if p.automatico_reservado_em %}<span class="status status--reservado">Automático bloqueado</span>{% elif p.revisao %}<span class="status status--falha">Revisar cadastro</span>{% elif not p.selecionado %}<span class="status">Fora da fila</span>{% else %}<span class="status status--aguardando">Sem tentativa</span>{% endif %}</td>
 <td>
 <a class="btn btn--sm btn--secondary" href="{% url 'painel:contato' p.pk %}">Revisar</a>
+<form method="post" action="{% url 'painel:excluir_contato' p.pk %}" class="mt-3" data-confirmar="Excluir {{ p.nome }} da lista de pacientes? Ele não receberá novos envios, mesmo após reimportação. Histórico e bloqueios serão preservados. Um envio já iniciado não pode ser desfeito.">{% csrf_token %}<button class="btn btn--sm btn--danger" aria-label="Excluir paciente {{ p.nome }}"><i class="ph ph-trash" aria-hidden="true"></i>Excluir</button></form>
 </td>
 </tr>{% endfor %}</tbody>
 </table>

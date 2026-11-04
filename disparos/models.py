@@ -28,6 +28,7 @@ class Contato(models.Model):
     prontuario = models.CharField(max_length=100, blank=True)
     situacao_origem = models.CharField(max_length=100, blank=True)
     selecionado = models.BooleanField(default=True)
+    excluido_em = models.DateTimeField(null=True, blank=True)
     revisao = models.CharField(max_length=255, blank=True)
     automatico_reservado_em = models.DateTimeField(null=True, blank=True, db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)

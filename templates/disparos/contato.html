@@ -15,6 +15,7 @@
 </p>{% if paciente.revisao %}<p class="callout mt-3">{{ paciente.revisao }}</p>{% endif %}<form method="post" class="mt-4">{% csrf_token %}{% include 'painel/_campos.html' with form=form %}<button class="btn btn--secondary">Salvar cadastro</button>
 </form>
 <p class="hint mt-3">Editar o nome ou número não remove o bloqueio automático. A identidade é vinculada ao ID de origem e ao número.</p>
+<form method="post" action="{% url 'painel:excluir_contato' paciente.pk %}" class="actions" data-confirmar="Excluir {{ paciente.nome }} da lista de pacientes? Ele não receberá novos envios, mesmo após reimportação. Histórico e bloqueios serão preservados. Um envio já iniciado não pode ser desfeito.">{% csrf_token %}<button class="btn btn--danger"><i class="ph ph-trash" aria-hidden="true"></i>Excluir paciente</button></form>
 </section>
 <aside class="disparo-stack">
 <section class="panel section disparo-panel">

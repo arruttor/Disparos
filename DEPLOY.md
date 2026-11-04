@@ -8,6 +8,8 @@ Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. 
 
 ### Atualização e inicialização
 
+**Excluir paciente (04/11/2026)** — publicar a alteração e aplicar `python manage.py migrate` (Railway já executa na inicialização), incluindo `disparos.0002_contato_excluido_em`. Fazer backup consistente antes da atualização e manter a fila pausada durante o deploy. O botão **Excluir** aparece na lista e **Excluir paciente** na ficha, com confirmação. A exclusão é lógica: remove da lista e de novos envios, preserva tentativas e reservas e não é revertida por reimportação ou inclusão em lote. Não é eliminação definitiva de dados pessoais. Uma chamada de envio já iniciada pode concluir; tentativas ainda não iniciadas ou em validação são interrompidas antes do envio ao observar a exclusão. Verificação local: 212 testes passando, check sem erros, nenhuma migração por gerar e prévia fictícia em claro/escuro e 375 px. Banco local de pacientes preservado; publicação pendente.
+
 **PostgreSQL no Railway (04/11/2026)** — `requirements.txt` inclui `psycopg[binary]>=3.3,<4`. Publicar e reconstruir a imagem antes de trocar o banco. No serviço **Disparos**, configurar referências ao serviço **Postgres**:
 
 ```dotenv
