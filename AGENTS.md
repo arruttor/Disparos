@@ -28,6 +28,8 @@
 
 ### Estado da adaptação
 
+- Estáticos Railway (03/11/2026): Gunicorn iniciado, mas CSS/JS não eram servidos. Adicionados WhiteNoise após SecurityMiddleware, storage comprimido com manifesto em produção e `railway.json` do serviço web para executar `collectstatic`, migrações e Gunicorn nessa ordem. Funciona também com DEBUG temporariamente ligado. Testes HTTP WSGI em `core/test_static.py` verificam CSS/JS/favicon/admin, compressão/cache e referência da página de login. Arquivos coletados continuam ignorados no Git; configuração não inicia fila nem Evolution.
+
 - Diagnóstico Railway (03/11/2026): migrações concluídas, mas início do servidor falhava com `gunicorn: command not found`. Gunicorn adicionado a `requirements.txt` para Linux (`sys_platform != "win32"`); desenvolvimento Windows continua com `runserver`. Correção local depende de nova publicação autorizada; não declarar deploy corrigido antes de novo build.
 
 - Migração `disparos.0001_initial` aplicada no SQLite local; backup anterior em `backups/` (ignorado no Git).

@@ -7,3 +7,4 @@ openai>=3.23  # cliente do endpoint compatível com OpenAI (Gemini, Groq…)
 celery[redis]>=5.6
 openpyxl>=3.1.5,<4  # leitura de planilhas de pacientes
 gunicorn>=26.2,<27; sys_platform != "win32"  # servidor WSGI no Linux/Railway
+whitenoise>=6.12,<7  # CSS/JS e arquivos estáticos servidos pelo próprio processo web
