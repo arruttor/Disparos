@@ -56,11 +56,9 @@ CELERY_TIMEZONE = "America/Recife"
 CELERY_TASK_ACKS_LATE = True  # tarefa só sai da fila depois de concluída: sobrevive a reinício do worker
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+MODO_DISPAROS = True
 CELERY_BEAT_SCHEDULE = {
-    "enviar-confirmacoes-e-lembretes": {
-        "task": "atendimento.tarefas.enviar_lembretes",
-        "schedule": 300.0,  # a cada 5 minutos (dentro da janela 8h–20h; fora dela não envia nada)
-    },
+    "processar-fila-de-disparos": {"task": "disparos.processar_fila", "schedule": 60.0},
 }
 
 INSTALLED_APPS = [
@@ -74,6 +72,7 @@ INSTALLED_APPS = [
     "integracoes",
     "atendimento",
     "painel",
+    "disparos",
 ]
 
 MIDDLEWARE = [

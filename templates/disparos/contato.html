@@ -1,0 +1,36 @@
+{% extends 'painel/base.html' %}{% block titulo %}Revisar paciente{% endblock %}{% block conteudo %}
+<a class="link" href="{% url 'painel:pacientes' %}">
+<i class="ph ph-arrow-left">
+</i>Pacientes</a>
+<div class="page-head mt-3">
+<div>
+<h1 class="page-title">{{ paciente.nome|default:'Revisar paciente' }}</h1>
+<p class="page-lead">ID {{ paciente.id_origem }} · {{ paciente.unidade.nome }}</p>
+</div>
+</div>
+<div class="disparo-grid">
+<section class="panel section disparo-panel">
+<h2 class="section__title">Cadastro</h2>
+<p class="hint mt-3">Telefone original da planilha: <span class="mono">{{ paciente.telefone_original|default:"Ausente" }}</span>
+</p>{% if paciente.revisao %}<p class="callout mt-3">{{ paciente.revisao }}</p>{% endif %}<form method="post" class="mt-4">{% csrf_token %}{% include 'painel/_campos.html' with form=form %}<button class="btn btn--secondary">Salvar cadastro</button>
+</form>
+<p class="hint mt-3">Editar o nome ou número não remove o bloqueio automático. A identidade é vinculada ao ID de origem e ao número.</p>
+</section>
+<aside class="disparo-stack">
+<section class="panel section disparo-panel">
+<h2 class="section__title">Prévia da mensagem atual</h2>
+<p class="disparo-previa mt-3">{{ previa|default:'Configure uma mensagem na página inicial.' }}</p>
+<p class="hint mt-3">O histórico abaixo preserva exatamente o texto de cada tentativa.</p>
+</section>
+{% if ultima and ultima.status != 'enviado' %}<section class="panel section disparo-panel">
+<h2 class="section__title">Nova tentativa manual</h2>
+<p class="page-lead">Confira a conversa no celular antes de tentar. Um resultado incerto pode significar que a mensagem já chegou.</p>
+<p class="hint mt-3">Será usada a mensagem atual e a mesma unidade do paciente. Aguarde o intervalo mínimo e, em processamento pendente, pelo menos 10 minutos.</p>
+<form method="post" action="{% url 'painel:tentar_manualmente' paciente.pk %}" data-confirmar="Você verificou o WhatsApp e quer fazer uma nova tentativa real para este paciente? Esta ação pode duplicar uma mensagem com resultado incerto." class="actions">{% csrf_token %}<button class="btn btn--secondary">
+<i class="ph ph-arrow-clockwise">
+</i>Tentar manualmente</button>
+</form>
+</section>{% endif %}</aside>
+</div>
+<section class="panel section disparo-panel mt-4">
+<h2 class="section__title">Histórico deste paciente</h2>{% include 'disparos/_tentativas.html' %}</section>{% endblock %}

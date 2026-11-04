@@ -136,6 +136,9 @@ def executar(agora=None, ignorar_janela=False):
     `ignorar_janela` = envio manual pelo botão do painel: ignora a janela 8h–20h, a hora configurada e as
     carências de "acabou de marcar" (quem clica quer enviar já).
     """
+    from django.conf import settings
+    if settings.MODO_DISPAROS:
+        return ResultadoEnvio(motivo='Lembretes desativados: sistema exclusivo de disparos.')
     agora = agora or timezone.now()
     config = Configuracao.obter()
     resultado = ResultadoEnvio()

@@ -1,5 +1,7 @@
 # CLAUDE.md — Automação de Clínica Odontológica
 
+> **Atualização de escopo em 03/11/2026:** o produto agora faz somente disparos iniciais pela Evolution a partir de planilha. IA, Google, lembretes e caixa de entrada ficam desativados. A documentação vigente é a seção inicial de `AGENTS.md` e `DEPLOY.md`; o conteúdo abaixo permanece como histórico. Reservas de número/paciente são permanentes, antes da rede, sem nenhuma repetição automática mesmo após falha. Nova tentativa apenas manual. App `disparos`, telas preservando a identidade atual, base local de 1.773 pacientes de Recife importada e fila pausada.
+
 Contexto do projeto para sessões do Claude Code (ou para quem assumir o trabalho). **Leia este arquivo inteiro antes de qualquer alteração.** Ele é atualizado ao final de toda sessão que mexe no código — a seção [12](#12-histórico-de-sessões) diz o que foi feito e quando.
 
 > **Regra do responsável pelo projeto:** o Claude **nunca** executa comandos que alterem o git (init, add, commit, push, branch, reset…). Commits são feitos manualmente pelo responsável. Pode sugerir a mensagem de commit; não pode rodar. Leitura (`git status`, `git diff`, `git check-ignore`) é permitida.
@@ -51,6 +53,7 @@ Sistema de **atendimento automatizado por WhatsApp com IA + agendamento no Googl
 | — | Roteiro do CRM depois da v1 (funil de orçamento, comparecimento, retorno programado, relatórios, multi-clínica) | ⬜ — fases A–D discutidas em 05/10/2026; priorizar com o cliente |
 | 7 | Confirmação D-1 + lembrete do dia + fila de tarefas (Celery + Redis) | 🔧 05/10/2026 — código pronto (148 testes); worker validado no Windows (recebeu e executou tarefa). **Falta o responsável testar** com uma consulta marcada para o dia seguinte |
 | 8 | Deploy na VPS (Hostinger) | ⬜ — ver `DEPLOY.md` |
+| 9 | **CRM de reativação** com a base do Dentista Organizado (prioridade do cliente desde a 1ª reunião) | 🔎 05/10/2026 — DO mapeado (seção 5, "Dentista Organizado"); importador ainda não escrito |
 
 **Por que Google e agendamento antes da IA:** as ferramentas da IA dependem de consultar e criar eventos na agenda. Em 01/10/2026 a ordem original (IA na 4, agendamento na 5) foi **invertida** a pedido do responsável: a escrita na agenda é validada sozinha pelo painel; a IA nasce só com a parte da conversa, chamando funções já testadas.
 
@@ -203,9 +206,10 @@ Janelas de `HorarioAtendimento` do dia − intervalos ocupados (Google `freeBusy
 
 **Assistente de IA** (`atendimento/assistente.py` + `services.py`)
 1. Webhook grava a mensagem do paciente → `disparar_assistente()` abre uma **thread** (não segura o webhook).
-2. A thread espera `Configuracao.espera_resposta_segundos` (padrão 8 s). Se chegou outra mensagem do paciente nesse tempo, desiste — o turno da mensagem mais nova responde tudo junto.
+2. Espera `tempo_de_espera()` = `Configuracao.espera_resposta_segundos` (padrão 8 s), **+12 s se a mensagem é só um cumprimento** ("oi", "boa tarde" — `CUMPRIMENTOS` em `services.py`). Cada mensagem agenda o próprio turno; só o da mensagem **mais nova** do paciente segue (checado antes da trava e de novo ao conseguir a trava) — e responde todas juntas (o histórico junta mensagens seguidas).
 3. Trava por conversa (um turno por vez) → `robo_pode_responder()` → `responder()`.
 4. `responder()`: histórico das últimas 72 h (máx. 40 mensagens, **só texto**, começando por mensagem do paciente; mensagens da equipe entram como assistant com o prefixo "[Mensagem enviada pela equipe da clínica]") → `client.beta.messages.create` com `system` em 2 blocos (fixo com `cache_control` + do turno: data/hora, unidade, dentistas, paciente e consultas) → ciclo de ferramentas (máx. 8 idas) → texto final.
+4b. **Resposta velha é descartada:** se o paciente mandou mensagem nova enquanto a IA gerava, a resposta não é enviada e o turno da mensagem nova responde tudo — **exceto** se a IA já fez uma ação (marcou/remarcou/cancelou/confirmou) ou transferiu, aí a resposta sai.
 5. `enviar_resposta()` grava a mensagem do robô com `id_externo = "pendente:<uuid>"` **antes** de enviar; o eco `fromMe` do webhook é reconhecido pelo texto (janela de 2 min) e não pausa o robô.
 6. Falhou (chave, créditos, rede, erro inesperado)? O paciente recebe `MENSAGEM_FALHA`, a conversa vai para a equipe e o erro vai para os Logs.
 - **Ferramentas** (todas `strict: true`): `buscar_horarios_livres`, `marcar_consulta`, `listar_consultas_do_paciente`, `confirmar_consulta`, `remarcar_consulta`, `cancelar_consulta`, `salvar_nome_paciente`, `transferir_para_humano`. Só agem nas consultas **do paciente da conversa**. Erros de regra voltam ao modelo como `tool_result` com `is_error`.
@@ -229,6 +233,16 @@ Janelas de `HorarioAtendimento` do dia − intervalos ocupados (Google `freeBusy
 **Fila de tarefas** (`config/celery.py`, `atendimento/tasks.py`)
 - `disparar_assistente()`: com `CELERY_BROKER_URL` **e** worker vivo (`celery_tem_worker()`, ping com cache de 30 s) → `processar_turno.apply_async(countdown=espera)`; senão → thread. Redis fora do ar → thread.
 - `CELERY_TASK_ACKS_LATE`: a tarefa só sai da fila depois de concluída (sobrevive a reinício do worker).
+
+**Dentista Organizado — mapeamento** (05/10/2026, só leitura, com o login do responsável; autorização da clínica)
+- Sistema Java/Struts antigo (`https://www.dentistaorganizado.com.br/*.do`), sessão por cookie, **sem API e sem exportação de verdade** — o "Exportar Excel" dos relatórios só converte a tabela da tela no navegador. Tudo sai de **GET que devolvem HTML** → parsear `<table>`.
+- **Pacientes:** `listaContatosMiolo.do?p2=100000&exibirLista=1` (fragmento AJAX; `p2` = tamanho da página) → todos numa chamada (~1.760). Colunas: ID interno, nome, grupo, prontuário, celular, situação. Links usam `contato.contatoId` (chave para casar tudo).
+- **Ficha:** `editarContato.ft?contato.contatoId=N` — campos `contato.*` (nome, cpf, telefone, foneResidencial, email, sexo, endereço, indicação, obs, situação…).
+- **Consultas:** `relatorioConsultas.do?data1=dd/mm/aaaa&data2=dd/mm/aaaa&btnokbusca=1` → paciente (`mostraResumo('<contatoId>')`), telefone, cadastro, data/hora (`dd/mm/aa hh:mm`), dentista, status (Agendada/Confirmada/Finalizada/Faltou/Cancelada/Chegou/Em atendimento). ~4.300 linhas, ~8 MB, 8 s. **Quase tudo é de 2021–2023** — a clínica parece ter parado de usar a agenda do DO (confirmar com o cliente).
+- **Procedimentos:** `relatorioTratamentos.do?data1=…&data2=…&btnokbusca=1` → paciente, telefone, procedimento, data de criação, data de finalização, evoluções, status (Concluído/Andamento/Cancelado). ~6.200 linhas de 2019 a 2026, **36 s** numa chamada — a fonte mais atual de "última vez que veio". **Status não é confiável:** a equipe não fecha os tratamentos no sistema (confirmado em 06/10/2026), por isso ~3.400 ficam em "Andamento". A atividade do paciente sai das **datas** (criação/finalização do procedimento, consultas, evoluções), nunca do status.
+- **Conta do DO = só unidade Recife** (06/10/2026).
+- Outros: `relatorioConsultasAtendidasSemRetorno.do` e `relatorioConsultasRechamadas.do` (`dataSearchInicio/Fim`), `findAllOrcamentos.do` (`data1/data2`, orçamentos com status), `alertasRetorno.do`.
+- **Cuidados para o importador:** fatiar por ano (não sobrecarregar o servidor deles), pausa entre chamadas, só GET, HTML em ISO-8859-1/UTF-8 misturado (acentos quebram), datas com ano de 2 dígitos. Login do DO cadastrado pelo painel em `CampoCriptografado`.
 
 **Logs**
 Use `logging.getLogger("clinica.<area>")`. Os loggers `clinica.*` e `django.request` (ERROR) vão para o console **e** para o banco (`RegistroLog`) → tela **Logs**.
@@ -340,6 +354,21 @@ Use `logging.getLogger("clinica.<area>")`. Os loggers `clinica.*` e `django.requ
 
 ## 9. Pendências com o cliente
 
+**Para o CRM de reativação (prioridade definida na 1ª reunião):**
+*(Fonte de dados resolvida em 05/10/2026: leitura do DO por scraping, autorizada pela clínica — ver seção 5.)*
+- **Onde as consultas são marcadas desde 2023?** A agenda do DO quase não tem nada depois de 2023. Google Agenda (um calendário por dentista? nome do paciente no título?), papel, outro sistema?
+- ~~Conta do DO é de qual unidade?~~ **Respondido (06/10/2026): só Recife** — as outras unidades ainda estão sendo construídas. Todo paciente importado do DO pertence a Recife.
+- ~~Os procedimentos "Andamento" são reais?~~ **Respondido (06/10/2026): não** — a equipe não costuma fechar os tratamentos no sistema. O status do procedimento **não serve** para achar "tratamento parado"; usar datas (ver seção 5).
+- Definição de "paciente inativo" (meses sem vir) e se muda por tipo (limpeza 6 meses, orto mensal…).
+- Quem **não** deve receber: em tratamento ativo, quem pediu para não ser contatado, conflitos, falecidos; menores → responsável. Pacientes antigos de convênio entram?
+- Por qual número saem as mensagens (recomendação: chip novo, não o principal) e quantas por dia.
+- O que oferecer e quem aprova o texto (regras de publicidade do CFO — sem preço/promoção).
+- Resposta do paciente: a IA marca direto ou passa para a secretária?
+- A ficha de cadastro tem autorização de contato? Opt-out em toda mensagem (LGPD).
+- Meta de sucesso (pacientes de volta por mês) — para medir e para precificar.
+- Um usuário do DO só para o sistema (se o DO permitir permissão só de leitura).
+
+**Da v1:**
 - Como o Google Agenda está organizado hoje (um calendário por dentista? por unidade?).
 - Lista real de procedimentos, duração e quem faz cada um.
 - Horários reais de cada dentista/unidade.
@@ -361,6 +390,7 @@ Use `logging.getLogger("clinica.<area>")`. Os loggers `clinica.*` e `django.requ
 - Rotação automática do `RegistroLog` (apagar INFO após X dias).
 - **Sincronização Google → sistema** (push notifications do Calendar ou varredura periódica pelos `agendamento_id` nas extendedProperties): refletir eventos movidos/apagados direto na agenda.
 - Mesclar pacientes duplicados (mesmo celular com e sem o 9).
+- **"Digitando…" do WhatsApp:** assinar o evento `PRESENCE_UPDATE` da Evolution e adiar a resposta enquanto o paciente estiver digitando (exige `presenceSubscribe` no contato — avaliar).
 - **Fuso horário por unidade** (`Unidade.fuso`): só necessário se voltar o horário de verão ou se entrar unidade em outro fuso (ex.: Manaus, UTC−4).
 
 ---
@@ -382,11 +412,14 @@ Use `logging.getLogger("clinica.<area>")`. Os loggers `clinica.*` e `django.requ
 ### 05/10/2026
 - Etapa 5 validada pelo responsável (assistente respondendo pelo WhatsApp com o Gemini).
 - **Etapa 6 — caixa de entrada:** menu **Conversas** com badge; lista com abas/filtro/busca; conversa com assumir, devolver, encerrar, responder pelo painel (vai pelo WhatsApp) e nota interna; atualização por polling; próximas consultas do paciente ao lado; layout de celular (lista ou conversa). Modelos: `Conversa.atendente` + `ultima_mensagem_*`, `Mensagem.autor` + origem `nota`, rótulos de status ("Com o assistente" / "Com a equipe") — migrações `atendimento.0004` e `0005` (preenche o resumo das conversas existentes). Signal do resumo, proteção em `Conversa.save()`, eco das mensagens da equipe, notas fora do histórico da IA. Indicador "Aguardando a equipe" do Início leva às conversas. 119 testes.
+- **Mensagens seguidas ("oi" / "boa tarde" / "quero marcar"):** o assistente respondia só o cumprimento — nos testes reais o intervalo entre mensagens foi de 14–20 s (maior que a espera de 8 s) e a IA leva 10–60 s. Agora: +12 s de espera quando a mensagem é só cumprimento, nova checagem de "mensagem mais nova" ao pegar a trava, resposta descartada se chegou mensagem durante a geração (salvo se houve ação/transferência), regra no prompt para responder tudo junto. 165 testes.
+- Roteiro da 1ª reunião com o cliente (levantamento de requisitos, demonstração, custos para a clínica) publicado como página: https://claude.ai/artifact/MB48seTed3nHa8ZXYjHqfC
 - **Análise dos Logs a pedido do responsável** (testes de resposta/assumir funcionando): 3 erros "database is locked" (SQLite + rajada de webhooks) → SQLite em WAL/IMMEDIATE/timeout 20 s e webhook sem gravação quando o status não muda; 4 avisos "sem worker" (esperado: rodando sem Celery) → aviso limitado a 1 a cada 10 min; 1 aviso de modelo reserva do Gemini (funcionando como planejado). 160 testes.
 - **Etapa 7 — confirmação D-1, lembrete e fila:** `atendimento/lembretes.py` (pedido de confirmação na véspera, lembrete N horas antes, janela 8h–20h, "SIM" confirma direto no webhook), configuração na página Assistente (+ botão "Enviar pendentes agora"), status dos envios na lista de consultas; Celery 5.6 + Redis (`config/celery.py`, `atendimento/tasks.py`, beat a cada 5 min, `acks_late`), assistente vai para a fila quando há worker vivo (senão thread), comando `enviar_lembretes`, `iniciar_dev.ps1`, Redis da fila no compose. Campos `Configuracao.confirmacao_*`/`lembrete_horas_antes` e `Agendamento.aviso_dia_enviado_em` (migrações `integracoes.0005`, `atendimento.0006`). Regra 10 no prompt. Worker real validado no Windows; nenhuma mensagem enviada (sem consultas futuras). 148 testes.
 - **Abas da caixa de entrada não rolavam com mouse** (rolagem lateral com barra escondida): rótulos curtos (Equipe / Assistente / Encerradas / Todas, descrição completa no `title`), quebra de linha como garantia, coluna da lista até 380 px. Menu do celular ganhou `data-rolagem-lateral` (rodinha, arrastar, esmaecimento) — verificado no navegador.
 - **Tipos de mensagem no webhook:** reações/figurinhas/protocolo/álbum ignorados; imagem, áudio, vídeo, documento, localização e contato viram descrição legível com legenda; regra nova no prompt sobre mídia. 124 testes.
 - **Verificação de fuso horário** a pedido do responsável: configuração, banco, telas (Início, Logs, Conversas), JSON do painel, janelas de atendimento e eventos lidos do Google — todos coerentes com o horário de Brasília. Nenhuma correção necessária; risco do horário de verão documentado.
+- **Mudança de prioridade (1ª reunião):** CRM de reativação com a base do Dentista Organizado. DO mapeado em modo só leitura (seção 5) — nenhum dado de paciente copiado para arquivos.
 - Observado ao migrar: o número de Minas recebe mensagens de contatos reais; o assistente (desligado no momento) só respondeu a conversa de teste do responsável.
 
 ### 01/10/2026

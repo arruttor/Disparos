@@ -5,6 +5,9 @@ def clinica(request):
     """Disponibiliza a clínica (nome na marca — white-label) e o contador da caixa de entrada."""
     if not getattr(request, "user", None) or not request.user.is_authenticated:
         return {}
+    from django.conf import settings
+    if settings.MODO_DISPAROS:
+        return {"clinica": Clinica.objects.only("nome").first(), "modo_disparos": True}
     from atendimento.models import Conversa, Mensagem  # import tardio: core não depende de atendimento no carregamento
 
     aguardando = Conversa.objects.filter(

@@ -873,7 +873,7 @@ class FilaDeTarefasTests(TestCase):
         with override_settings(ASSISTENTE_EM_SEGUNDO_PLANO=True, CELERY_BROKER_URL="redis://localhost:6379/0"):
             disparar_assistente(self.conversa, self.msg)
         self.assertEqual(apply_async.call_args.kwargs["args"], (self.conversa.pk, self.msg.pk))
-        self.assertEqual(apply_async.call_args.kwargs["countdown"], 8)
+        self.assertEqual(apply_async.call_args.kwargs["countdown"], 20)  # "oi" é só cumprimento: 8 + 12
 
     @mock.patch("atendimento.services.celery_tem_worker", return_value=True)
     @mock.patch("atendimento.services.threading.Thread")
@@ -932,3 +932,83 @@ class AvisoSemWorkerTests(TestCase):
             for texto in ("oi", "tudo bem?", "quero marcar"):
                 services.disparar_assistente(conversa, Mensagem.objects.create(conversa=conversa, origem="paciente", texto=texto))
         self.assertEqual(RegistroLog.objects.filter(mensagem__startswith="Fila configurada").count(), 1)
+
+class MensagensSeguidasTests(TestCase):
+    """O paciente manda "oi" / "boa tarde" / "quero marcar" separado: uma resposta só, no contexto todo."""
+
+    def setUp(self):
+        from integracoes.models import Configuracao, InstanciaWhatsApp
+        from .models import Conversa, Mensagem
+        self.M = Mensagem
+        Configuracao.obter()
+        clinica = Clinica.objects.create(nome="Teste")
+        unidade = Unidade.objects.create(clinica=clinica, nome="Minas")
+        InstanciaWhatsApp.objects.create(unidade=unidade, nome_instancia="x", robo_ativo=True)
+        self.conversa = Conversa.objects.create(
+            paciente=Paciente.objects.create(clinica=clinica, telefone="5531999990000"), unidade=unidade, simulada=True)
+
+    def test_espera_maior_para_cumprimento(self):
+        from .services import eh_so_cumprimento, tempo_de_espera
+        for t in ["oi", "Oi!", "Boa tarde", "boa tarde, tudo bem?", "Olá", "bom dia"]:
+            with self.subTest(t):
+                self.assertTrue(eh_so_cumprimento(t))
+        for t in ["quero marcar uma consulta", "oi, quero marcar uma limpeza", "estou com dor"]:
+            with self.subTest(t):
+                self.assertFalse(eh_so_cumprimento(t))
+        self.assertEqual(tempo_de_espera(self.M(texto="boa tarde")), 20)
+        self.assertEqual(tempo_de_espera(self.M(texto="quero marcar uma consulta")), 8)
+
+    @mock.patch("atendimento.assistente.responder")
+    def test_resposta_velha_e_descartada_se_chegou_mensagem_nova(self, responder):
+        from .assistente import Resultado
+        from .services import processar_turno
+        oi = self.M.objects.create(conversa=self.conversa, origem="paciente", texto="oi")
+
+        def gera_enquanto_paciente_escreve(conversa, **kw):
+            # Enquanto a IA "pensa" na resposta ao "oi", chega o pedido de verdade.
+            self.M.objects.create(conversa=self.conversa, origem="paciente", texto="quero marcar uma consulta")
+            return Resultado(texto="Oi! Como posso ajudar?")
+
+        responder.side_effect = gera_enquanto_paciente_escreve
+        self.assertIsNone(processar_turno(self.conversa.pk, oi.pk, esperar=False))
+        self.assertFalse(self.conversa.mensagens.filter(origem="robo").exists())
+
+    @mock.patch("atendimento.assistente.responder")
+    def test_se_ja_fez_uma_acao_a_resposta_sai_mesmo_assim(self, responder):
+        from .assistente import Resultado
+        from .services import processar_turno
+        sim = self.M.objects.create(conversa=self.conversa, origem="paciente", texto="pode marcar às 9h")
+
+        def marca_e_paciente_escreve(conversa, **kw):
+            self.M.objects.create(conversa=self.conversa, origem="paciente", texto="obrigado!")
+            return Resultado(texto="Marcado para sexta às 9h!", acoes=["marcou consulta 7"])
+
+        responder.side_effect = marca_e_paciente_escreve
+        processar_turno(self.conversa.pk, sim.pk, esperar=False)
+        self.assertEqual(self.conversa.mensagens.filter(origem="robo").last().texto, "Marcado para sexta às 9h!")
+
+    @mock.patch("atendimento.assistente.responder")
+    def test_so_o_turno_da_ultima_mensagem_chama_a_ia(self, responder):
+        from .assistente import Resultado
+        from .services import processar_turno
+        responder.return_value = Resultado(texto="Claro! Para qual procedimento?")
+        m1 = self.M.objects.create(conversa=self.conversa, origem="paciente", texto="oi")
+        m2 = self.M.objects.create(conversa=self.conversa, origem="paciente", texto="boa tarde")
+        m3 = self.M.objects.create(conversa=self.conversa, origem="paciente", texto="quero marcar uma consulta")
+        for m in (m1, m2, m3):
+            processar_turno(self.conversa.pk, m.pk, esperar=False)
+        self.assertEqual(responder.call_count, 1)
+        self.assertEqual(self.conversa.mensagens.filter(origem="robo").count(), 1)
+
+    def test_historico_junta_as_mensagens_seguidas(self):
+        from .assistente import montar_historico
+        for t in ("oi", "boa tarde", "quero marcar uma consulta"):
+            self.M.objects.create(conversa=self.conversa, origem="paciente", texto=t)
+        self.assertEqual(montar_historico(self.conversa), [{"role": "user", "content": "oi\nboa tarde\nquero marcar uma consulta"}])
+
+
+# Regressão do código histórico: executado explicitamente no modo antigo, nunca em produção.
+from django.test import override_settings as _legado_settings
+for _classe in list(globals().values()):
+    if isinstance(_classe, type) and _classe.__module__ == __name__ and issubclass(_classe, (TestCase, SimpleTestCase)):
+        _legado_settings(MODO_DISPAROS=False, ROOT_URLCONF='config.urls_legacy')(_classe)

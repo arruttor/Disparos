@@ -1,0 +1,4 @@
+{% if pagina.has_other_pages %}<nav class="pager" aria-label="Paginação">
+<span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} · {{ pagina.paginator.count }} registros</span>
+<div class="pager__links">{% if pagina.has_previous %}<a class="btn btn--sm btn--secondary" href="?{{ querystring }}&pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}{% if pagina.has_next %}<a class="btn btn--sm btn--secondary" href="?{{ querystring }}&pagina={{ pagina.next_page_number }}">Próxima</a>{% endif %}</div>
+</nav>{% endif %}

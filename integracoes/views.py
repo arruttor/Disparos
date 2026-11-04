@@ -97,6 +97,8 @@ def webhook_evolution(request):
                 instancia.save(update_fields=["status", "detalhe_status", "ultima_verificacao"])
 
         elif evento == "messages.upsert":
+            if settings.MODO_DISPAROS:
+                return JsonResponse({"ok": True})
             chave = dados.get("key") or {}
             jid = chave.get("remoteJid", "")
             if not jid.endswith("@s.whatsapp.net"):

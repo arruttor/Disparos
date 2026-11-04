@@ -1,0 +1,48 @@
+{% extends 'painel/base.html' %}{% block titulo %}Conexão WhatsApp{% endblock %}{% block conteudo %}
+<div class="page-head">
+<div>
+<h1 class="page-title">Conexão WhatsApp</h1>
+<p class="page-lead">A Evolution envia as mensagens. A equipe continua usando o celular normalmente.</p>
+</div>
+<form method="post" action="{% url 'painel:verificar_tudo' %}">{% csrf_token %}<button class="btn btn--secondary">
+<i class="ph ph-arrows-clockwise">
+</i>Verificar status</button>
+</form>
+</div>
+<section class="panel section disparo-panel" id="whatsapp">
+<header class="section__head">
+<span class="section__icon">
+<i class="ph ph-whatsapp-logo">
+</i>
+</span>
+<div>
+<h2 class="section__title">Evolution API</h2>
+<p class="section__desc">Conecte o servidor e depois escaneie o QR code da unidade.</p>
+</div>
+</header>
+<div class="split">
+<div>
+<form method="post">{% csrf_token %}{% include 'painel/_campos.html' with form=form %}<button class="btn btn--secondary">Salvar conexão</button>
+</form>
+<form method="post" action="{% url 'painel:testar_evolution' %}" class="actions">{% csrf_token %}<button class="btn btn--ghost">
+<i class="ph ph-plug">
+</i>Testar conexão</button>
+</form>
+</div>
+<div>{% for u in unidades %}<article class="unit">
+<div class="unit__head">
+<div>
+<div class="unit__name">{{ u.nome }}</div>
+<div class="unit__meta mono">{{ u.whatsapp.numero|default:'Sem número' }}</div>
+</div>{% if u.whatsapp %}<span class="status status--{{ u.whatsapp.status }}">{{ u.whatsapp.get_status_display }}</span>{% else %}<span class="status">Não configurado</span>{% endif %}</div>{% if u.whatsapp.status == 'conectado' %}<form method="post" action="{% url 'painel:whatsapp_desconectar' u.pk %}" data-confirmar="Desconectar o WhatsApp desta unidade? Os próximos disparos aguardarão a conexão.">{% csrf_token %}<button class="btn btn--sm btn--secondary">Desconectar</button>
+</form>{% else %}<form method="post" action="{% url 'painel:whatsapp_conectar' u.pk %}" class="inline-form">{% csrf_token %}<label class="sr-only" for="numero-{{ u.pk }}">Número de {{ u.nome }}</label>
+<input class="input input--mono" id="numero-{{ u.pk }}" name="numero" placeholder="DDD + número" value="{{ u.whatsapp.numero|default:'' }}">
+<button class="btn">
+<i class="ph ph-qr-code">
+</i>Conectar</button>
+</form>{% endif %}</article>{% empty %}<div class="empty">
+<p class="empty__title">Cadastre uma unidade</p>
+<a class="btn" href="{% url 'admin:core_unidade_add' %}">Cadastrar</a>
+</div>{% endfor %}</div>
+</div>
+</section>{% endblock %}

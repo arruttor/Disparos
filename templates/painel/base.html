@@ -29,16 +29,19 @@
       <span class="brand__mark">{% include "painel/_marca.html" %}</span>
       <span class="brand__text">
         <span class="brand__name">{{ clinica.nome|default:"Sua clínica" }}</span>
-        <span class="brand__sub">Painel de atendimento</span>
+        <span class="brand__sub">{% if modo_disparos %}Disparos de mensagens{% else %}Painel de atendimento{% endif %}</span>
       </span>
     </a>
 
     {% with nome=request.resolver_match.url_name %}
     <nav class="nav" aria-label="Principal" data-rolagem-lateral>
       <a href="{% url 'painel:dashboard' %}" {% if nome == 'dashboard' %}aria-current="page"{% endif %}><i class="ph ph-squares-four"></i>Início</a>
-      <a href="{% url 'painel:conversas' %}" {% if 'conversa' in nome %}aria-current="page"{% endif %}><i class="ph ph-chats"></i>Conversas{% if conversas_aguardando %}<span class="nav__badge" title="{{ conversas_aguardando }} esperando resposta da equipe">{{ conversas_aguardando }}</span>{% endif %}</a>
+      {% if modo_disparos %}
+      <a href="{% url 'painel:pacientes' %}" {% if nome == 'pacientes' or nome == 'contato' %}aria-current="page"{% endif %}><i class="ph ph-users"></i>Pacientes</a>
+      <a href="{% url 'painel:historico' %}" {% if nome == 'historico' %}aria-current="page"{% endif %}><i class="ph ph-paper-plane-tilt"></i>Disparos</a>
+      {% else %}<a href="{% url 'painel:conversas' %}" {% if 'conversa' in nome %}aria-current="page"{% endif %}><i class="ph ph-chats"></i>Conversas{% if conversas_aguardando %}<span class="nav__badge">{{ conversas_aguardando }}</span>{% endif %}</a>{% endif %}
       <a href="{% url 'painel:integracoes' %}" {% if 'integracoes' in nome or 'whatsapp' in nome %}aria-current="page"{% endif %}><i class="ph ph-plugs-connected"></i>Integrações</a>
-      <a href="{% url 'painel:assistente' %}" {% if 'assistente' in nome %}aria-current="page"{% endif %}><i class="ph ph-sparkle"></i>Assistente</a>
+      {% if not modo_disparos %}<a href="{% url 'painel:assistente' %}" {% if 'assistente' in nome %}aria-current="page"{% endif %}><i class="ph ph-sparkle"></i>Assistente</a>{% endif %}
       <a href="{% url 'painel:logs' %}" {% if nome == 'logs' %}aria-current="page"{% endif %}><i class="ph ph-pulse"></i>Logs</a>
       <a href="{% url 'admin:index' %}"><i class="ph ph-address-book"></i>Cadastros</a>
     </nav>

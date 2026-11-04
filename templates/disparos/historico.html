@@ -1,0 +1,15 @@
+{% extends 'painel/base.html' %}{% block titulo %}Histórico de disparos{% endblock %}{% block conteudo %}<div class="page-head">
+<div>
+<h1 class="page-title">Disparos</h1>
+<p class="page-lead">Apenas mensagens iniciadas pelo sistema. Respostas e outras conversas não são registradas.</p>
+</div>
+</div>
+<form method="get" class="filters">
+<label class="sr-only" for="q">Nome ou telefone</label>
+<input class="input" name="q" id="q" value="{{ busca }}" placeholder="Nome ou telefone">
+<label class="sr-only" for="status">Resultado</label>
+<select class="select" id="status" name="status">
+<option value="">Todos os resultados</option>{% for valor,rotulo in estados %}<option value="{{ valor }}" {% if estado == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+<button class="btn btn--secondary">Filtrar</button>
+</form>
+<section class="panel">{% include 'disparos/_tentativas.html' with tentativas=pagina.object_list %}</section>{% include 'disparos/_paginacao.html' %}{% endblock %}

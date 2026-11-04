@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib import admin, messages
+from core.admin_policy import SomenteLegadoAdmin
 
 from .models import Agendamento, Conversa, Mensagem, Paciente
 
@@ -8,7 +9,7 @@ logger = logging.getLogger("clinica.painel")
 
 
 @admin.register(Paciente)
-class PacienteAdmin(admin.ModelAdmin):
+class PacienteAdmin(SomenteLegadoAdmin, admin.ModelAdmin):
     list_display = ["nome", "telefone", "criado_em"]
     search_fields = ["nome", "telefone"]
 
@@ -30,7 +31,7 @@ def devolver_ao_assistente(modeladmin, request, queryset):
 
 
 @admin.register(Conversa)
-class ConversaAdmin(admin.ModelAdmin):
+class ConversaAdmin(SomenteLegadoAdmin, admin.ModelAdmin):
     list_display = ["paciente", "unidade", "status", "motivo_transferencia", "simulada", "atualizada_em"]
     list_filter = ["status", "unidade", "simulada"]
     actions = [devolver_ao_assistente]
@@ -38,7 +39,7 @@ class ConversaAdmin(admin.ModelAdmin):
 
 
 @admin.register(Agendamento)
-class AgendamentoAdmin(admin.ModelAdmin):
+class AgendamentoAdmin(SomenteLegadoAdmin, admin.ModelAdmin):
     list_display = ["paciente", "dentista", "procedimento", "inicio", "status"]
     list_filter = ["status", "dentista"]
     date_hierarchy = "inicio"

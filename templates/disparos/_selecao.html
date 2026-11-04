@@ -1,0 +1,6 @@
+<form method="post" action="{% url 'painel:selecionar' %}" id="selecao" class="actions">
+  {% csrf_token %}
+  <span class="hint">Selecione os cadastros desta página:</span>
+  <button class="btn btn--sm btn--secondary" name="acao" value="excluir">Retirar da fila</button>
+  <button class="btn btn--sm btn--secondary" name="acao" value="incluir">Incluir na fila</button>
+</form>

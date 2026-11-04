@@ -1,5 +1,29 @@
 # Automação de Clínica Odontológica
 
+## Produto atual: disparos de mensagens (03/11/2026)
+
+Painel para importar pacientes de uma planilha Excel/CSV e enviar uma mensagem inicial personalizada pelo WhatsApp, via Evolution. Sem IA ou Google Agenda. Respostas e conversas do celular não são importadas.
+
+**Uma tentativa automática por paciente/número, permanentemente.** Falhou ou ficou incerto? Nova tentativa somente manual, após conferir o celular. Reimportar, reiniciar ou mudar mensagem/horários não remove bloqueios.
+
+1. Instalar `requirements.txt` e executar `python manage.py migrate`.
+2. Iniciar Django, Evolution e o agendador. `iniciar_dev.ps1` sobe Docker, Django, worker e beat. Como alternativa, executar `python manage.py processar_disparos` a cada minuto via Agendador de Tarefas/cron.
+3. Em **Integrações**, conectar o WhatsApp da unidade. Não precisa configurar IA/Google.
+4. Em **Pacientes**, importar a planilha e revisar/selecionar destinatários.
+5. Em **Início**, salvar unidade, mensagem (`{nome}` ou `{primeiro_nome}`), horários e lote. Fazer teste no seu número e depois iniciar a fila.
+
+Padrão: 09h, 14h e 17h; até 10 pacientes por lote; pelo menos 60 s entre tentativas; janela de uma hora por lote. Fila pausada inicialmente. Detalhes atuais em [AGENTS.md](AGENTS.md) e [DEPLOY.md](DEPLOY.md).
+
+Base local desta adaptação: 1.773 pacientes de Recife; 64 para revisão de cadastro. Nenhum envio real realizado na implementação.
+
+Testes: `python manage.py test`; verificações: `python manage.py check` e `python manage.py makemigrations --check --dry-run`.
+
+---
+
+## Referência histórica do atendimento anterior
+
+O texto abaixo descreve a versão antiga. Funcionalidades de IA, Google e lembretes não participam mais da operação.
+
 Atendimento por WhatsApp com IA + agendamento no Google Agenda + painel de gestão.
 
 > **Vai trabalhar no projeto?** Leia primeiro o [CLAUDE.md](CLAUDE.md) (contexto, convenções, armadilhas, roteiro e histórico).

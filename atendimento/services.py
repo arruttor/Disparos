@@ -130,6 +130,9 @@ def _enviar(conversa, texto, origem, autor=None, levantar_erro=False):
     """
     from integracoes.evolution import ErroEvolution, EvolutionClient
 
+    if settings.MODO_DISPAROS:
+        return None
+
     if conversa.simulada:
         return Mensagem.objects.create(conversa=conversa, origem=origem, texto=texto, autor=autor)
 
@@ -248,21 +251,55 @@ def _trava_da_conversa(conversa_id):
         return _travas.setdefault(conversa_id, threading.Lock())
 
 
+# Quem só cumprimenta ("oi", "boa tarde") quase sempre manda o assunto em seguida.
+ESPERA_EXTRA_CUMPRIMENTO = 12
+CUMPRIMENTOS = {
+    "oi", "oii", "oie", "ola", "opa", "e ai", "eai", "bom dia", "boa tarde", "boa noite", "tudo bem", "td bem",
+    "tudo bom", "oi tudo bem", "ola tudo bem", "oi boa tarde", "oi bom dia", "oi boa noite", "ola boa tarde",
+    "ola bom dia", "ola boa noite", "bom dia tudo bem", "boa tarde tudo bem", "boa noite tudo bem", "alo",
+}
+
+
+def eh_so_cumprimento(texto):
+    from .lembretes import _normalizar  # mesma normalização (minúsculas, sem acento/pontuação)
+
+    return _normalizar(texto).replace("?", "").strip() in CUMPRIMENTOS
+
+
+def tempo_de_espera(mensagem):
+    """Quanto esperar antes de responder: mais tempo se a mensagem é só um cumprimento."""
+    base = Configuracao.obter().espera_resposta_segundos
+    return base + ESPERA_EXTRA_CUMPRIMENTO if eh_so_cumprimento(mensagem.texto) else base
+
+
+def _ultima_do_paciente(conversa_id):
+    return (
+        Mensagem.objects.filter(conversa_id=conversa_id, origem=Mensagem.Origem.PACIENTE)
+        .order_by("-criada_em", "-pk").values_list("pk", flat=True).first()
+    )
+
+
 def processar_turno(conversa_id, mensagem_id, esperar=True):
-    """Espera o paciente terminar de digitar, gera a resposta e envia."""
+    """Espera o paciente terminar de digitar, gera a resposta e envia.
+
+    Só o turno da mensagem MAIS NOVA do paciente responde — e responde todas as mensagens juntas
+    (o histórico junta as mensagens seguidas do paciente). Os turnos das mensagens anteriores desistem.
+    """
+    if settings.MODO_DISPAROS:
+        return
     from .assistente import MENSAGEM_FALHA, ErroAssistente, descrever_erro_api, responder
 
     if esperar:
-        time.sleep(Configuracao.obter().espera_resposta_segundos)
+        mensagem = Mensagem.objects.filter(pk=mensagem_id).first()
+        time.sleep(tempo_de_espera(mensagem) if mensagem else Configuracao.obter().espera_resposta_segundos)
     # Chegou outra mensagem do paciente depois desta? O turno dela responde tudo junto.
-    ultima = (
-        Mensagem.objects.filter(conversa_id=conversa_id, origem=Mensagem.Origem.PACIENTE)
-        .order_by("-criada_em").values_list("pk", flat=True).first()
-    )
-    if ultima != mensagem_id:
+    if _ultima_do_paciente(conversa_id) != mensagem_id:
         return None
 
     with _trava_da_conversa(conversa_id):
+        # Pode ter chegado mensagem nova enquanto esperava a vez (outro turno estava rodando).
+        if _ultima_do_paciente(conversa_id) != mensagem_id:
+            return None
         conversa = Conversa.objects.select_related("paciente", "unidade__clinica", "unidade__whatsapp").get(pk=conversa_id)
         if not robo_pode_responder(conversa):
             return None
@@ -279,6 +316,13 @@ def processar_turno(conversa_id, mensagem_id, esperar=True):
             # Falhou: o paciente não fica sem resposta, e a equipe é avisada.
             transferir_para_humano(conversa, "Falha do assistente (veja os Logs)")
             enviar_resposta(conversa, MENSAGEM_FALHA)
+            return None
+        # O paciente escreveu de novo enquanto a IA pensava? Esta resposta ficou velha: descarta e deixa o
+        # turno da mensagem nova responder tudo junto. Exceção: se a IA já FEZ algo (marcou, cancelou…)
+        # ou transferiu, a resposta sai — o paciente precisa saber o que aconteceu.
+        if not resultado.acoes and not resultado.transferiu and _ultima_do_paciente(conversa_id) != mensagem_id:
+            logger.info("Resposta descartada na conversa %s: o paciente mandou mensagem nova durante a geração; "
+                        "o próximo turno responde tudo junto.", conversa_id)
             return None
         texto = resultado.texto or (TEXTO_TRANSFERENCIA if resultado.transferiu else "")
         if texto:
@@ -328,10 +372,7 @@ def _agendar_no_celery(conversa, mensagem):
             _aviso_sem_worker["em"] = time.monotonic()
         return False
     try:
-        tarefa.apply_async(
-            args=(conversa.pk, mensagem.pk), countdown=Configuracao.obter().espera_resposta_segundos,
-            retry=False,
-        )
+        tarefa.apply_async(args=(conversa.pk, mensagem.pk), countdown=tempo_de_espera(mensagem), retry=False)
         return True
     except Exception as e:  # Redis fora do ar, por exemplo
         logger.warning("Fila de tarefas indisponível (%s); respondendo por thread.", e)

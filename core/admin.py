@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.conf import settings
+from .admin_policy import SomenteLegadoAdmin
 
 from .models import Clinica, Dentista, HorarioAtendimento, Procedimento, RegistroLog, Unidade
 
@@ -24,6 +26,12 @@ class UnidadeAdmin(admin.ModelAdmin):
     list_display = ["nome", "cidade", "clinica", "ativa"]
     inlines = [DentistaInline]
 
+    def get_inlines(self, request, obj=None):
+        return [] if settings.MODO_DISPAROS else super().get_inlines(request, obj)
+
+    def get_fields(self, request, obj=None):
+        return ['clinica', 'nome', 'cidade', 'endereco', 'ativa'] if settings.MODO_DISPAROS else super().get_fields(request, obj)
+
 
 class HorarioInline(admin.TabularInline):
     model = HorarioAtendimento
@@ -31,7 +39,7 @@ class HorarioInline(admin.TabularInline):
 
 
 @admin.register(Dentista)
-class DentistaAdmin(admin.ModelAdmin):
+class DentistaAdmin(SomenteLegadoAdmin, admin.ModelAdmin):
     list_display = ["nome", "unidade", "ativo"]
     list_filter = ["unidade", "ativo"]
     filter_horizontal = ["procedimentos"]
@@ -39,7 +47,7 @@ class DentistaAdmin(admin.ModelAdmin):
 
 
 @admin.register(Procedimento)
-class ProcedimentoAdmin(admin.ModelAdmin):
+class ProcedimentoAdmin(SomenteLegadoAdmin, admin.ModelAdmin):
     list_display = ["nome", "duracao_minutos", "urgencia", "ativo"]
     list_filter = ["urgencia", "ativo"]
 

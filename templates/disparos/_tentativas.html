@@ -1,0 +1,32 @@
+{% if tentativas %}<div class="table-wrap">
+<table class="table">
+<thead>
+<tr>
+<th scope="col">Paciente e número</th>
+<th scope="col">Mensagem</th>
+<th scope="col">Resultado</th>
+<th scope="col">Quando</th>
+</tr>
+</thead>
+<tbody>{% for t in tentativas %}<tr>
+<td>
+<a class="link" href="{% url 'painel:contato' t.contato_id %}">{{ t.nome }}</a>
+<div class="mono hint">{{ t.telefone_usado|default:t.telefone_original }}</div>
+</td>
+<td class="disparo-mensagem">{{ t.mensagem }}</td>
+<td>
+<span class="status status--{{ t.status }}">{{ t.get_status_display }}</span>
+<div class="hint">{{ t.detalhe }}</div>
+<div class="hint">{% if t.manual %}Manual · {{ t.autor|default:'usuário removido' }}{% else %}Automático{% endif %}</div>
+</td>
+<td class="col-time">{{ t.criado_em|date:'d/m/Y H:i:s' }}</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>{% else %}<div class="empty">
+<div class="empty__icon empty__icon--neutral">
+<i class="ph ph-paper-plane-tilt">
+</i>
+</div>
+<p class="empty__title">Nenhum disparo registrado</p>
+<p class="empty__text">Somente as tentativas feitas por este sistema aparecerão aqui.</p>
+</div>{% endif %}

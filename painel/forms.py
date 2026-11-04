@@ -85,6 +85,11 @@ class FormAssistente(forms.ModelForm):
             "espera_resposta_segundos", "pausa_robo_minutos",
         ]
         widgets = {"assistente_instrucoes": forms.Textarea}
+        help_texts = {
+            "espera_resposta_segundos": "Quanto o assistente espera depois da última mensagem antes de responder "
+                                        "(cada mensagem nova recomeça a contagem). Se a mensagem for só um cumprimento "
+                                        "(“oi”, “boa tarde”), ele espera 12 segundos a mais.",
+        }
 
 
 class FormLembretes(forms.ModelForm):

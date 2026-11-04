@@ -839,3 +839,9 @@ class MenosGravacoesNoWebhookTests(TestCase):
             salvar.assert_not_called()
         instancia.refresh_from_db()
         self.assertEqual((instancia.status, instancia.ultima_verificacao), (StatusConexao.CONECTADO, primeira))
+
+
+# Mantém a cobertura das integrações históricas com as rotas antigas isoladas dos disparos.
+for _classe in list(globals().values()):
+    if isinstance(_classe, type) and _classe.__module__ == __name__ and issubclass(_classe, TestCase):
+        override_settings(MODO_DISPAROS=False, ROOT_URLCONF='config.urls_legacy')(_classe)

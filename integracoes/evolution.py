@@ -15,7 +15,7 @@ from .models import Configuracao, StatusConexao
 
 logger = logging.getLogger("clinica.evolution")
 
-EVENTOS_WEBHOOK = ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
+EVENTOS_WEBHOOK = ["CONNECTION_UPDATE", "QRCODE_UPDATED"]
 
 
 class ErroEvolution(Exception):
@@ -92,6 +92,10 @@ class EvolutionClient:
 
     def enviar_texto(self, nome, numero, texto):
         return self._req("POST", f"/message/sendText/{nome}", json={"number": numero, "text": texto})
+
+    def verificar_numeros(self, nome, numeros):
+        """Consulta registro WhatsApp. Não confirma nome nem titularidade."""
+        return self._req("POST", f"/chat/whatsappNumbers/{nome}", json={"numbers": numeros})
 
 
 def url_webhook():

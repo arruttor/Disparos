@@ -393,6 +393,26 @@ img { max-width: 100%; display: block; }
 .slot--btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
 .patient-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; margin-top: 12px; }
 
+/* Disparos: os mesmos tokens e componentes do painel. */
+.disparo-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.disparo-stack { display: grid; gap: 24px; min-width: 0; }
+.disparo-panel { padding: 24px; margin-bottom: 0; }
+.disparo-panel > .section__head { margin: -24px -24px 24px; }
+.disparo-panel > .split { margin: 0 -24px -24px; }
+.disparo-grid > * { min-width: 0; }
+.disparo-previa { white-space: pre-wrap; overflow-wrap: anywhere; padding: 18px; background: var(--surface-hover); border-radius: var(--r-lg); line-height: 1.7; }
+.disparo-mensagem { min-width: 220px; max-width: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.disparo-pacientes .table { min-width: 920px; }
+.disparo-pacientes .table td:nth-child(2) { min-width: 240px; }
+.status--enviado { color: var(--ok); }
+.status--falha, .status--incerto { color: var(--warn); }
+.status--enviado::before { background: var(--ok); box-shadow: none; }
+.status--falha::before, .status--incerto::before { background: var(--warn); box-shadow: none; }
+.status--bloqueado, .status--reservado, .status--pausado { color: var(--text-muted); }
+.table .status { white-space: normal; }
+summary.section__title { cursor: pointer; min-height: 24px; }
+@media (max-width: 760px) { .disparo-grid { grid-template-columns: minmax(0, 1fr); } }
+
 /* Consultas */
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 .table tr.is-muted td { color: var(--text-faint); }

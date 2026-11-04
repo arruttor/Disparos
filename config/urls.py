@@ -10,5 +10,5 @@ urlpatterns = [
     path("entrar/", auth_views.LoginView.as_view(template_name="painel/login.html"), name="login"),
     path("sair/", auth_views.LogoutView.as_view(), name="logout"),
     path("integracoes/", include("integracoes.urls")),
-    path("", include("painel.urls")),
+    path("", include("disparos.urls")),
 ]

@@ -1,0 +1,11 @@
+<section class="panel section disparo-panel mt-4">
+  <h2 class="section__title">Conferir no seu WhatsApp</h2>
+  <p class="page-lead">Salve a configuração e envie uma amostra para um número seu antes de iniciar a fila.</p>
+  <form method="post" action="{% url 'painel:enviar_teste' %}" class="mt-4" data-confirmar="Enviar uma mensagem real de teste para o número informado? Ele também ficará reservado e não receberá disparos automáticos.">
+    {% csrf_token %}
+    {% include 'painel/_campos.html' with form=form_teste %}
+    <button class="btn btn--secondary">
+<i class="ph ph-paper-plane-tilt">
+</i>Enviar teste</button>
+  </form>
+</section>

@@ -1,0 +1,65 @@
+{% extends 'painel/base.html' %}{% block titulo %}Pacientes{% endblock %}{% block conteudo %}
+<div class="page-head">
+<div>
+<h1 class="page-title">Pacientes</h1>
+<p class="page-lead">Importe sua planilha e revise a base. Reimportar não apaga tentativas nem libera números já reservados.</p>
+</div>
+</div>
+<details class="panel section disparo-panel">
+<summary class="section__title">Importar planilha de pacientes</summary>
+<form class="mt-4" method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.non_field_errors }}{% include 'painel/_campos.html' with form=form %}<button class="btn">
+<i class="ph ph-upload-simple">
+</i>Importar base</button>
+<p class="hint mt-3">Colunas: ID interno, Nome, Grupo, Prontuário, Celular e Situação. A planilha extraída do Dentista Organizado é compatível.</p>
+</form>
+</details>
+<form method="get" class="filters mt-4" role="search">
+<label class="sr-only" for="busca">Buscar paciente</label>
+<input class="input" id="busca" name="q" value="{{ busca }}" placeholder="Nome, telefone ou ID">
+<label class="sr-only" for="estado">Estado da fila</label>
+<select class="select" id="estado" name="estado">
+<option value="">Todos</option>
+<option value="pendentes" {% if estado == 'pendentes' %}selected{% endif %}>Sem tentativa</option>
+<option value="reservados" {% if estado == 'reservados' %}selected{% endif %}>Automático bloqueado</option>
+<option value="revisao" {% if estado == 'revisao' %}selected{% endif %}>Precisam de revisão</option>
+<option value="excluidos" {% if estado == 'excluidos' %}selected{% endif %}>Fora da fila</option>
+</select>
+<label class="sr-only" for="grupo">Grupo</label>
+<select class="select" id="grupo" name="grupo">
+<option value="">Todos os grupos</option>{% for g in grupos %}<option {% if grupo == g %}selected{% endif %}>{{ g }}</option>{% endfor %}</select>
+<button class="btn btn--secondary">Filtrar</button>
+</form>
+{% include 'disparos/_selecao.html' %}<section class="panel mt-3 disparo-pacientes">{% if pagina.object_list %}<div class="table-wrap">
+<table class="table">
+<thead>
+<tr>
+<th scope="col">Selecionar</th>
+<th scope="col">Paciente</th>
+<th scope="col">Telefone da planilha</th>
+<th scope="col">Grupo</th>
+<th scope="col">Fila</th>
+<th scope="col">Ação</th>
+</tr>
+</thead>
+<tbody>{% for p in pagina %}<tr>
+<td>
+<input type="checkbox" name="contatos" value="{{ p.pk }}" form="selecao" aria-label="Selecionar {{ p.nome }}">
+</td>
+<td>{{ p.nome|default:'Sem nome' }}<div class="hint mono">ID {{ p.id_origem }} · {{ p.unidade.nome }}</div>
+</td>
+<td class="mono">{{ p.telefone_original|default:'Ausente' }}</td>
+<td>{{ p.grupo }}</td>
+<td>{% if p.automatico_reservado_em %}<span class="status status--reservado">Automático bloqueado</span>{% elif p.revisao %}<span class="status status--falha">Revisar cadastro</span>{% elif not p.selecionado %}<span class="status">Fora da fila</span>{% else %}<span class="status status--aguardando">Sem tentativa</span>{% endif %}</td>
+<td>
+<a class="btn btn--sm btn--secondary" href="{% url 'painel:contato' p.pk %}">Revisar</a>
+</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>{% else %}<div class="empty">
+<div class="empty__icon empty__icon--neutral">
+<i class="ph ph-users">
+</i>
+</div>
+<p class="empty__title">Nenhum paciente encontrado</p>
+<p class="empty__text">Importe uma planilha ou ajuste os filtros.</p>
+</div>{% endif %}</section>{% include 'disparos/_paginacao.html' %}{% endblock %}

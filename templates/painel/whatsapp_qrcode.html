@@ -18,7 +18,7 @@
       <div class="qr-visual"><div class="success-mark"><i class="ph ph-check"></i></div></div>
       <div>
         <h2 class="section__title">Número conectado</h2>
-        <p class="page-lead">O assistente já recebe as mensagens desta unidade. A equipe continua usando o WhatsApp no celular normalmente.</p>
+        <p class="page-lead">WhatsApp conectado para os disparos. A equipe continua usando o celular normalmente; conversas e respostas não são importadas.</p>
         <div class="actions"><a class="btn" href="{% url 'painel:integracoes' %}#whatsapp">Voltar às integrações</a></div>
       </div>
 
@@ -83,7 +83,7 @@
           document.getElementById("sucesso").hidden = false;
           document.getElementById("titulo-qr").textContent = "Número conectado";
           document.getElementById("passos").hidden = true;
-          document.getElementById("dica-qr").textContent = "O assistente já recebe as mensagens desta unidade.";
+          document.getElementById("dica-qr").textContent = "WhatsApp conectado para disparos. Conversas e respostas ficam no celular.";
           document.getElementById("acoes-sucesso").hidden = false;
         }
       } catch (e) { /* tenta de novo no próximo ciclo */ }

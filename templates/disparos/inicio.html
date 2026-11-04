@@ -1,0 +1,81 @@
+{% extends 'painel/base.html' %}
+{% block titulo %}Disparos de mensagens{% endblock %}
+{% block conteudo %}
+<div class="page-head">
+<div>
+<h1 class="page-title">Uma primeira mensagem.</h1>
+<p class="page-lead">Sua base de pacientes, uma fila e um contato por número. Você acompanha apenas os disparos.</p>
+</div>
+<form method="post" action="{% url 'painel:disparos_controle' %}" {% if not config.ativo %}data-confirmar="Ativar os envios reais nos horários configurados? Confira a mensagem e os pacientes selecionados antes de iniciar."{% endif %}>{% csrf_token %}
+{% if config.ativo %}<input type="hidden" name="acao" value="pausar">
+<button class="btn btn--secondary">
+<i class="ph ph-pause">
+</i>Pausar fila</button>{% else %}<input type="hidden" name="acao" value="iniciar">
+<button class="btn">
+<i class="ph ph-play">
+</i>Iniciar fila</button>{% endif %}</form>
+</div>
+<div class="kpis">
+<div class="kpi">
+<div class="kpi__label">Pacientes na base</div>
+<div class="kpi__value">{{ total }}</div>
+</div>
+<div class="kpi">
+<div class="kpi__label">Aguardando primeira tentativa</div>
+<div class="kpi__value">{{ pendentes }}</div>
+</div>
+<div class="kpi">
+<div class="kpi__label">Aceitos pela Evolution</div>
+<div class="kpi__value">{{ enviados }}</div>
+</div>
+<div class="kpi">
+<div class="kpi__label">Cadastros para revisar</div>
+<div class="kpi__value">{{ revisar }}</div>
+</div>
+</div>
+<div class="disparo-grid mt-4">
+<section class="panel section disparo-panel">
+<header class="section__head">
+<span class="section__icon">
+<i class="ph ph-paper-plane-tilt">
+</i>
+</span>
+<div>
+<h2 class="section__title">Mensagem e programação</h2>
+<p class="section__desc">{% if config.ativo %}Pause a fila para editar.{% else %}Salvar não inicia os envios.{% endif %}</p>
+</div>
+</header>
+<form method="post">{% csrf_token %}{{ form.non_field_errors }}{% include 'painel/_campos.html' with form=form %}<button class="btn btn--secondary" {% if config.ativo %}disabled{% endif %}>
+<i class="ph ph-floppy-disk">
+</i>Salvar configuração</button>
+</form>
+</section>
+<aside class="disparo-stack">
+<section class="panel section disparo-panel">
+<h2 class="section__title">Estado da fila</h2>
+<div class="actions">
+<span class="status {% if config.ativo %}status--conectado{% else %}status--aguardando{% endif %}">{% if config.ativo %}Ativa{% else %}Pausada{% endif %}</span>
+</div>
+<p class="hint">Horários: <span class="mono">{{ config.horarios }}</span> (Brasília). Até {{ config.tamanho_lote }} pacientes por lote, na janela de uma hora.</p>
+<p class="hint mt-3">{% if agendador_recente %}Agendador verificado recentemente.{% else %}Agendador ainda não verificado ou sem atividade recente. Os envios automáticos precisam dele em execução.{% endif %}</p>
+<p class="hint">{% if instancia %}WhatsApp: {{ instancia.get_status_display }}.{% else %}Escolha uma unidade e conecte o WhatsApp em Integrações.{% endif %}</p>
+</section>
+<section class="panel section disparo-panel">
+<h2 class="section__title">Uma tentativa automática</h2>
+<p class="page-lead">O número sai da fila antes da consulta à Evolution. Mesmo se falhar, ele não volta sozinho.</p>
+<p class="hint mt-3">Correções preservam o telefone original. Validar o WhatsApp não confirma quem é o dono do número. Respostas e outras conversas ficam apenas no celular.</p>
+<div class="actions">
+<a class="btn btn--secondary" href="{% url 'painel:pacientes' %}">
+<i class="ph ph-upload-simple">
+</i>Importar pacientes</a>
+</div>
+</section>
+</aside>
+</div>
+<section class="panel section disparo-panel mt-4">
+<div class="page-head">
+<h2 class="section__title">Últimos disparos</h2>
+<a class="link" href="{% url 'painel:historico' %}">Ver histórico</a>
+</div>{% include 'disparos/_tentativas.html' with tentativas=ultimos %}</section>
+{% include 'disparos/_teste.html' %}
+{% endblock %}

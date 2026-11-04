@@ -1,5 +1,52 @@
 # Deploy em Produção — Automação de Clínica Odontológica
 
+## Operação vigente em 03/11/2026: fila de disparos
+
+Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. A publicação do código não realiza deploy no Railway; banco local, planilhas, backups e `.env` não acompanham o Git. Commit/push desta publicação foram autorizados pontualmente pelo responsável.
+
+**O produto foi simplificado. Esta seção substitui o procedimento antigo abaixo no que envolve IA, agenda, conversas e lembretes.** Os demais cuidados com segredos, backup, TLS e isolamento da Evolution continuam válidos. Infraestrutura de produção (Dockerfile/compose/proxy) continua pendente; não declarar o sistema publicado.
+
+### Atualização e inicialização
+
+1. Parar processos antigos do Django, worker e beat antes da atualização. Eles precisam reiniciar com o código novo; tarefas antigas de assistente/lembrete serão ignoradas pelas guardas.
+2. Fazer backup consistente do banco e guardar a `CHAVE_CRIPTOGRAFIA`. Nunca restaurar backup antigo após disparos sem reconciliar reservas: perder esse histórico permite duplicar mensagens. Não apagar linhas de `disparos_numeroreservado`, contatos reservados, rodadas ou tentativas.
+3. Instalar `requirements.txt` (inclui `openpyxl` somente para leitura do Excel).
+4. Executar `python manage.py migrate`, `python manage.py check` e, em produção, `python manage.py collectstatic --noinput`.
+5. Rodar Django, Evolution e Redis. Nenhuma credencial Google/IA é necessária. O schema antigo permanece para preservar dados; seus menus, rotas operacionais e admin ficam desativados.
+6. Rodar worker e **um único beat**. No Windows: `.venv\Scripts\celery -A config worker -P threads -c 4 -l info` e `.venv\Scripts\celery -A config beat -l info`. Configurar `CELERY_BROKER_URL` no ambiente.
+7. Alternativa sem Celery: tarefa agendada a cada minuto executando `python manage.py processar_disparos`. Não habilitar os agendamentos antigos de `enviar_lembretes`. Nenhum agendador é iniciado automaticamente por abrir o painel.
+
+### Configuração pelo painel
+
+1. Acessar **Integrações**, salvar URL/API key da Evolution, conectar o WhatsApp da unidade por QR code e verificar o status. Novos webhooks assinam conexão/QR. Eventos antigos de mensagens recebidas são descartados sem persistência.
+2. Em **Pacientes**, importar `.xlsx`/`.csv` e selecionar a unidade correta. A planilha extraída do DO tem cabeçalho na linha 6 e é reconhecida. A importação é idempotente pelo ID interno/unidade e mantém reservas anteriores.
+3. Revisar registros inválidos, excluir quem não deve receber e conferir grupos. Nome é o do cadastro; o sistema não confirma titularidade do telefone. Correções ficam separadas do telefone original.
+4. Em **Início**, escolher a unidade, escrever a mensagem (variáveis `{nome}` e `{primeiro_nome}`), horários, quantidade por lote e intervalo. Salvar mantém a fila pausada.
+5. Usar **Enviar teste** com número indicado pelo responsável. É um envio real, manual, sujeito ao mesmo livro de números: o número de teste não recebe novamente pelo automático. Resultado sem ID/timeout exige conferência no celular.
+6. Somente depois da conferência, acionar **Iniciar fila**. A programação padrão é 09h/14h/17h, até 10 pacientes por lote e mínimo de 60 s entre tentativas. Uma tentativa por tick; janela de uma hora por horário, entre 08h–20h (Brasília). Horário perdido não é recuperado fora da janela.
+7. Histórico registra apenas mensagem inicial, paciente, original/corrigido, data, origem manual/automática e resultado. Aceitação pela Evolution não é confirmação de entrega/leitura. Respostas e conversas do celular não são coletadas.
+
+### Proteção contra repetição
+
+- Reserva persistente de paciente e número commitada antes da validação/rede, chave única global e normalização conservadora de aliases com/sem nono dígito.
+- Nenhuma segunda tentativa automática, mesmo se houve falha na validação, timeout, processo morto, nova programação ou reimportação. Tarefas duplicadas não repetem uma tentativa já iniciada.
+- Falhas/resultados incertos: só botão **Tentar manualmente** na ficha do paciente, após revisão. Processamento interrompido exige esperar 10 minutos. Envios aceitos e números reservados por outro paciente continuam bloqueados.
+- Pausar impede as próximas chamadas; não desfaz uma chamada já iniciada na Evolution.
+- Backup precisa incluir todo o banco do sistema, especialmente reservas. Não operar múltiplas cópias independentes do banco sobre a mesma base/número: a unicidade vale no banco compartilhado.
+
+### Verificação desta adaptação
+
+- SQLite local migrado após backup. Importados 1.773 pacientes para Recife; 64 para revisão local. Recife selecionada, mensagem vazia, fila pausada. Nenhum envio real nesta implementação.
+- Testes automatizados incluem validação, aliases, ID repetido entre unidades, timeout, claim persistente/reentrada, importação/reimportação, reserva antes da rede, edição de formulário antigo, retry só manual, permissões e isolamento de mensagens recebidas. Regressões antigas rodam explicitamente no modo legado de teste.
+- Pendente antes de operar: conexão real da unidade, texto aprovado pelo responsável, número para teste real e agendador em execução. VPS ainda não configurada por esta sessão.
+- Validação local: 204 testes passando, `check` sem problemas e `makemigrations --check --dry-run` sem alterações. Visual revisado em claro/escuro e 375 px; integração de envio ainda precisa do teste real acompanhado pelo responsável.
+
+---
+
+## Procedimento histórico do produto de atendimento
+
+As instruções abaixo de Google, IA e lembretes não se aplicam ao novo produto. As partes de infraestrutura/segredos/backup servem como referência enquanto o compose de produção não for implementado.
+
 **Documento para:** quem for colocar o sistema no ar e quem for mantê-lo
 **Última atualização:** 05/10/2026 (etapa 7 — confirmação D-1, lembrete e fila Celery + Redis; dependência nova `celery[redis]`; variável nova `CELERY_BROKER_URL`; migrações `integracoes.0005` e `atendimento.0006`. Antes: etapa 6 — migrações `atendimento.0004`/`0005`)
 **Situação:** ⚠️ **nenhum deploy foi feito ainda.** Este documento descreve o **caminho planejado** e lista, na [seção 8](#8-o-que-falta-no-código-antes-do-primeiro-deploy), o que ainda precisa ser criado no código antes do primeiro deploy. Atualize-o a cada sessão.

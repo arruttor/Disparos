@@ -1,6 +1,7 @@
 """Tarefas do Celery (só usadas quando CELERY_BROKER_URL está configurado)."""
 
 import logging
+from django.conf import settings
 
 from celery import shared_task
 
@@ -10,6 +11,8 @@ logger = logging.getLogger("clinica.tarefas")
 @shared_task(name="atendimento.tarefas.processar_turno", ignore_result=True)
 def processar_turno(conversa_id, mensagem_id):
     """Turno do assistente. A espera antes de responder é feita pelo `countdown` do agendamento da tarefa."""
+    if settings.MODO_DISPAROS:
+        return
     from .services import processar_turno as executar
 
     executar(conversa_id, mensagem_id, esperar=False)
@@ -17,6 +20,8 @@ def processar_turno(conversa_id, mensagem_id):
 
 @shared_task(name="atendimento.tarefas.enviar_lembretes", ignore_result=True)
 def enviar_lembretes():
+    if settings.MODO_DISPAROS:
+        return
     from .lembretes import executar
 
     resultado = executar()
