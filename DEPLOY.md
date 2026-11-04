@@ -8,6 +8,10 @@ Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. 
 
 ### Atualização e inicialização
 
+**Railway: `gunicorn: command not found`** — o container termina depois das migrações porque falta o servidor WSGI, não por uma requisição ao site. `requirements.txt` agora inclui `gunicorn>=26.2,<27` em Linux. É necessário publicar a correção e fazer novo build para instalar a dependência; somente reiniciar a imagem antiga não resolve. Windows não instala Gunicorn e continua usando `runserver` em desenvolvimento.
+
+Para o processo web no Railway, o comando de inicialização pode ser `python manage.py migrate --noinput && exec gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --access-logfile - --error-logfile -`. O domínio deve encaminhar à mesma porta (`PORT`, por exemplo 8080). Esse comando não inicia agendador nem Evolution. Estáticos ainda precisam de coleta e um servidor/middleware adequado, mesmo com DEBUG ligado; persistência do banco deve ser configurada antes de importar pacientes. Não declarar a aplicação operacional somente porque o build terminou.
+
 1. Parar processos antigos do Django, worker e beat antes da atualização. Eles precisam reiniciar com o código novo; tarefas antigas de assistente/lembrete serão ignoradas pelas guardas.
 2. Fazer backup consistente do banco e guardar a `CHAVE_CRIPTOGRAFIA`. Nunca restaurar backup antigo após disparos sem reconciliar reservas: perder esse histórico permite duplicar mensagens. Não apagar linhas de `disparos_numeroreservado`, contatos reservados, rodadas ou tentativas.
 3. Instalar `requirements.txt` (inclui `openpyxl` somente para leitura do Excel).

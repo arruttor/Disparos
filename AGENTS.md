@@ -28,6 +28,8 @@
 
 ### Estado da adaptação
 
+- Diagnóstico Railway (03/11/2026): migrações concluídas, mas início do servidor falhava com `gunicorn: command not found`. Gunicorn adicionado a `requirements.txt` para Linux (`sys_platform != "win32"`); desenvolvimento Windows continua com `runserver`. Correção local depende de nova publicação autorizada; não declarar deploy corrigido antes de novo build.
+
 - Migração `disparos.0001_initial` aplicada no SQLite local; backup anterior em `backups/` (ignorado no Git).
 - **1.773 pacientes** importados para **Recife (unidade 1)**, **64 para revisão local**. Os demais ainda precisam da validação Evolution no momento da tentativa.
 - Recife selecionada; mensagem em branco; fila pausada. Nenhuma mensagem real nem validação em massa enviada nesta implementação. Falta validar com número de teste do responsável antes de ativar a base.
