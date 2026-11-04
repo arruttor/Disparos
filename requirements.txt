@@ -1,5 +1,6 @@
 Django>=6.1,<6.2
 python-dotenv>=1.2
+psycopg[binary]>=3.3,<4  # driver PostgreSQL com bibliotecas binárias
 cryptography>=50.0
 requests>=2.34
 anthropic>=1.11

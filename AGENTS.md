@@ -28,6 +28,9 @@
 
 ### Estado da adaptação
 
+- PostgreSQL Railway (04/11/2026): serviço Postgres com volume criado pelo responsável. Adicionado `psycopg[binary]>=3.3,<4` para permitir o backend PostgreSQL já existente em settings. A conexão depende das cinco variáveis `DATABASE_*` no serviço Disparos; criar o serviço de banco não conecta o Django automaticamente. Não trocar antes de conferir e preservar eventuais dados/reservas do SQLite remoto. Preparação local não transfere dados nem altera o Railway.
+- Responsável confirmou que no Railway só criou o administrador. Verificação local desta preparação: 207 testes passando no SQLite, `check` sem erros, nenhuma migração nova e importação do backend PostgreSQL com psycopg 3.3.7 concluída. Conexão ao PostgreSQL remoto ainda não testada. Nenhuma alteração visual.
+
 - Estáticos Railway (03/11/2026): Gunicorn iniciado, mas CSS/JS não eram servidos. Adicionados WhiteNoise após SecurityMiddleware, storage comprimido com manifesto em produção e `railway.json` do serviço web para executar `collectstatic`, migrações e Gunicorn nessa ordem. Funciona também com DEBUG temporariamente ligado. Testes HTTP WSGI em `core/test_static.py` verificam CSS/JS/favicon/admin, compressão/cache e referência da página de login. Arquivos coletados continuam ignorados no Git; configuração não inicia fila nem Evolution.
 
 - Diagnóstico Railway (03/11/2026): migrações concluídas, mas início do servidor falhava com `gunicorn: command not found`. Gunicorn adicionado a `requirements.txt` para Linux (`sys_platform != "win32"`); desenvolvimento Windows continua com `runserver`. Correção local depende de nova publicação autorizada; não declarar deploy corrigido antes de novo build.

@@ -8,6 +8,20 @@ Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. 
 
 ### Atualização e inicialização
 
+**PostgreSQL no Railway (04/11/2026)** — `requirements.txt` inclui `psycopg[binary]>=3.3,<4`. Publicar e reconstruir a imagem antes de trocar o banco. No serviço **Disparos**, configurar referências ao serviço **Postgres**:
+
+```dotenv
+DATABASE_NAME=${{Postgres.PGDATABASE}}
+DATABASE_USER=${{Postgres.PGUSER}}
+DATABASE_PASSWORD=${{Postgres.PGPASSWORD}}
+DATABASE_HOST=${{Postgres.PGHOST}}
+DATABASE_PORT=${{Postgres.PGPORT}}
+```
+
+O código atual usa essas cinco variáveis, não `DATABASE_URL`. Usar a rede privada; não é necessário expor o banco publicamente. O comando de inicialização aplica migrações no banco selecionado, mas **não copia os dados do SQLite**. Antes da troca, manter a fila pausada e conferir se o SQLite remoto contém pacientes, configurações, tentativas ou reservas: nesse caso é necessária transferência consistente e conferência, preservando a chave de criptografia. Se só houver o administrador e nenhum dado necessário, recriar o usuário com `/app/.venv/bin/python /app/manage.py createsuperuser` após a troca. Confirmar conexão e login no novo banco antes de importar/ativar a base. O volume persistente não substitui backups.
+
+Nesta preparação, o responsável confirmou que só criou o administrador no Railway. Driver e backend importados localmente com psycopg 3.3.7; 207 testes SQLite passando, `check` sem erros e nenhuma migração nova. Isso ainda não valida uma conexão com o PostgreSQL remoto.
+
 **Railway: página sem CSS/JS** — só `collectstatic` não basta: o Gunicorn não serve estáticos por conta própria. O projeto usa WhiteNoise imediatamente após SecurityMiddleware e `CompressedManifestStaticFilesStorage` com DEBUG=false. `railway.json` define a inicialização do serviço WEB: `collectstatic --noinput` → `migrate --noinput` → Gunicorn em `0.0.0.0:$PORT` (fallback 8080). A coleta ocorre no mesmo container antes de o middleware carregar os arquivos. Não usar esse arquivo no futuro serviço agendador/worker: ele precisa de configuração própria.
 
 Depois de publicar, fazer novo build com a dependência `whitenoise` e confirmar no deploy que o comando efetivo inclui a coleta. Se estiver usando configuração de outro caminho/ambiente, atualizar o Start Command para o equivalente ao `railway.json`. A correção vale também para o DEBUG temporariamente ligado escolhido pelo responsável. Verificar `/static/css/painel.css`, `/static/js/painel.js` e `/entrar/`; em produção os links da página usam hash e compressão/cache. Não alterar a configuração do DEBUG sem decisão do responsável. Isso não resolve nem substitui a persistência do banco.
