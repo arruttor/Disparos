@@ -5,6 +5,7 @@ from unittest import mock
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command, CommandError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -45,6 +46,57 @@ class DisparosTests(TestCase):
 
     def liberar_intervalo(self):
         ConfiguracaoDisparo.objects.filter(pk=1).update(proxima_tentativa_em=None)
+
+    def test_comando_continuo_respeita_pausa_sem_chamar_evolution(self):
+        ConfiguracaoDisparo.objects.filter(pk=1).update(ativo=False)
+        with mock.patch('disparos.management.commands.processar_disparos.time.sleep', side_effect=KeyboardInterrupt) as espera:
+            with mock.patch('disparos.services.EvolutionClient') as api:
+                call_command('processar_disparos', continuo=True, stdout=io.StringIO())
+        espera.assert_called_once_with(60)
+        api.assert_not_called()
+        self.assertFalse(Tentativa.objects.exists())
+        self.config.refresh_from_db()
+        self.assertIsNotNone(self.config.ultima_execucao)
+
+    def test_comando_continuo_nao_repete_tentativa_apos_falha(self):
+        # Primeiro ciclo falha na validação; o próximo não reserva o mesmo contato.
+        self.api.verificar_numeros.side_effect = ErroEvolution('offline')
+        with mock.patch('disparos.management.commands.processar_disparos.time.sleep', side_effect=[None, KeyboardInterrupt]):
+            with mock.patch('disparos.services.EvolutionClient', return_value=self.api):
+                with mock.patch('disparos.services.timezone.now', return_value=self.agora):
+                    call_command('processar_disparos', continuo=True, stdout=io.StringIO())
+        self.assertEqual(Tentativa.objects.count(), 1)
+        self.api.verificar_numeros.assert_called_once()
+        self.api.enviar_texto.assert_not_called()
+
+    def test_comando_simples_nao_aguarda_nem_inicia_loop(self):
+        ConfiguracaoDisparo.objects.filter(pk=1).update(ativo=False)
+        with mock.patch('disparos.management.commands.processar_disparos.time.sleep') as espera:
+            call_command('processar_disparos', stdout=io.StringIO())
+        espera.assert_not_called()
+
+    def test_agendador_railway_recusa_sqlite(self):
+        with self.assertRaisesMessage(CommandError, 'DATABASE_*'):
+            call_command('processar_disparos', exigir_postgres=True, stdout=io.StringIO())
+
+    def test_tres_blocos_de_dez_com_intervalo_de_dois_minutos(self):
+        ConfiguracaoDisparo.objects.filter(pk=1).update(intervalo_segundos=120)
+        for indice in range(30):
+            self.criar_contato(f'lote-{indice}', f'8197{indice:07d}')
+        self.api.verificar_numeros.side_effect = lambda instancia, numeros: [
+            {'exists': True, 'number': numeros[0], 'jid': numeros[0] + '@s.whatsapp.net'}]
+        for hora in (9, 14, 17):
+            inicio = self.agora.replace(hour=hora)
+            for minuto in range(22):
+                agora = inicio + timedelta(minutes=minuto)
+                with mock.patch('disparos.services.timezone.now', return_value=agora):
+                    executar_rodada(agora=agora, client=self.api)
+            self.assertEqual(list(Tentativa.objects.filter(criado_em__gte=inicio, criado_em__lt=inicio + timedelta(hours=1))
+                .order_by('pk').values_list('criado_em', flat=True)),
+                [inicio + timedelta(minutes=minuto) for minuto in range(0, 20, 2)])
+        self.assertEqual(Tentativa.objects.filter(status=Tentativa.Status.ENVIADO).count(), 30)
+        self.assertEqual(self.api.enviar_texto.call_count, 30)
+        self.assertEqual(Tentativa.objects.values('contato_id').distinct().count(), 30)
 
     def test_exclusao_preserva_historico_reservas_e_oculta_cadastro(self):
         tentativa = self.reservar()

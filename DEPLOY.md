@@ -8,6 +8,38 @@ Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. 
 
 ### Atualização e inicialização
 
+### Agendador no Railway sem Celery (04/11/2026)
+
+O serviço web não executa a fila sozinho. Usar **um serviço separado Agendador**, com o mesmo repositório/branch do Disparos e o arquivo de configuração `/railway.agendador.json`. Ele executa `python -u manage.py processar_disparos --continuo --exigir-postgres`: uma verificação por minuto após cada passo, sempre respeitando o intervalo salvo no banco. Não precisa adicionar Redis para este agendador. Não executar também beat ou cron; manter uma única réplica, Serverless desligado, sem domínio público, sem HTTP healthcheck e sem Cron Schedule. Reinício do processo não libera reservas nem repete uma tentativa iniciada.
+
+1. **Pausar a fila no painel antes de criar o serviço.** Em Início, salvar horários `09:00,14:00,17:00`, lote `10` e intervalo `120` segundos. O código não modifica esses valores automaticamente nem ativa envios. Falhas também consomem tentativas do lote; não são garantidas dez entregas.
+2. Publicar o código autorizado e aguardar o deploy web concluir suas migrações. Criar o serviço Agendador usando o mesmo repositório GitHub e branch `main`. Nas configurações do serviço, definir o caminho de configuração como `/railway.agendador.json` antes do deploy efetivo do agendador. Não reutilizar `/railway.json`, que inicia o Gunicorn. O manifesto define uma réplica, suspensão automática desligada e restart ALWAYS; conferir as opções efetivas no deploy.
+3. Em **Variables** do Agendador, cadastrar referências (não novos valores de segredos):
+
+```dotenv
+DJANGO_SECRET_KEY=${{Disparos.DJANGO_SECRET_KEY}}
+CHAVE_CRIPTOGRAFIA=${{Disparos.CHAVE_CRIPTOGRAFIA}}
+WEBHOOK_TOKEN=${{Disparos.WEBHOOK_TOKEN}}
+DJANGO_DEBUG=${{Disparos.DJANGO_DEBUG}}
+URL_PUBLICA=${{Disparos.URL_PUBLICA}}
+URL_SITE=${{Disparos.URL_SITE}}
+DATABASE_NAME=${{Disparos.DATABASE_NAME}}
+DATABASE_USER=${{Disparos.DATABASE_USER}}
+DATABASE_PASSWORD=${{Disparos.DATABASE_PASSWORD}}
+DATABASE_HOST=${{Disparos.DATABASE_HOST}}
+DATABASE_PORT=${{Disparos.DATABASE_PORT}}
+```
+
+4. Implantar com a fila ainda pausada. Nos logs, confirmar `Agendador iniciado` e `Nenhuma tentativa elegível neste momento`. Se houver erro DATABASE_*, corrigir as referências; nunca remover a guarda para contornar o problema. Conexão Evolution e sua API key vêm do banco compartilhado, não precisam de uma cópia em variáveis do agendador.
+5. Após dois ciclos, conferir em Início que o indicador do agendador ficou recente. Só então o responsável pode iniciar a fila. Com 120 s de intervalo, os dez contatos são tentados em aproximadamente 18 minutos a partir do primeiro, com atrasos possíveis por rede/processamento. Os horários são Brasília (`America/Recife`); início no meio de uma janela usa o restante dela, sem recuperar janelas vencidas. O navegador pode ficar fechado: os serviços Railway precisam permanecer rodando.
+6. Para economizar durante testes, pausar a fila antes de parar o Agendador. Para retomar, subir banco, Evolution e painel, depois Agendador, conferir conexão/indicador e só então iniciar a fila. Não excluir banco, reservas ou volumes.
+
+Preparação local não cria serviço remoto, não publica código e não realiza disparos reais. Configuração do painel deve ser conferida no PostgreSQL remoto pelo responsável antes de ativar.
+
+Validação local: 217 testes SQLite passando, `check` sem erros e nenhuma migração nova; três blocos de dez com 120 s simulados sem rede. Nenhuma alteração visual. Conferir logs e indicador no Railway para validar a operação remota.
+
+### Demais atualizações
+
 **Excluir paciente (04/11/2026)** — publicar a alteração e aplicar `python manage.py migrate` (Railway já executa na inicialização), incluindo `disparos.0002_contato_excluido_em`. Fazer backup consistente antes da atualização e manter a fila pausada durante o deploy. O botão **Excluir** aparece na lista e **Excluir paciente** na ficha, com confirmação. A exclusão é lógica: remove da lista e de novos envios, preserva tentativas e reservas e não é revertida por reimportação ou inclusão em lote. Não é eliminação definitiva de dados pessoais. Uma chamada de envio já iniciada pode concluir; tentativas ainda não iniciadas ou em validação são interrompidas antes do envio ao observar a exclusão. Verificação local: 212 testes passando, check sem erros, nenhuma migração por gerar e prévia fictícia em claro/escuro e 375 px. Banco local de pacientes preservado; publicação pendente.
 
 **PostgreSQL no Railway (04/11/2026)** — `requirements.txt` inclui `psycopg[binary]>=3.3,<4`. Publicar e reconstruir a imagem antes de trocar o banco. No serviço **Disparos**, configurar referências ao serviço **Postgres**:

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "startCommand": "python -u manage.py processar_disparos --continuo --exigir-postgres",
+    "numReplicas": 1,
+    "sleepApplication": false,
+    "restartPolicyType": "ALWAYS"
+  }
+}
