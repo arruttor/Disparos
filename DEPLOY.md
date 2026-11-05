@@ -2,6 +2,10 @@
 
 ## Operação vigente em 03/11/2026: fila de disparos
 
+**Atualização documental em 05/11/2026:** a implantação no Railway foi acompanhada e o responsável confirmou acesso, conexão WhatsApp, recebimento do teste e logs de inicialização do Agendador. Isso não confirma execução de uma campanha completa. O README atual contém o percurso consolidado, variáveis, limites e distinção entre validação local e relatos de produção. Referências históricas abaixo a deploy pendente ou publicação pendente descrevem etapas anteriores.
+
+**Correção de configuração:** o serviço novo Agendador foi configurado diretamente em Settings → Deploy → Custom Start Command com `python -u manage.py processar_disparos --continuo --exigir-postgres`, mantendo Railway Config File vazio. A interface recusou adesão de serviços novos ao formato legado; `/railway.agendador.json` é somente referência nesse caso. Conferir manualmente uma réplica, Serverless desligado, política de reinício, ausência de cron e de healthcheck HTTP. Não alterar o serviço web ao configurar o agendador. A documentação Railway informa término do formato legado em 01/12/2026; planejar migração do serviço web que ainda depende de `railway.json`.
+
 Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. A publicação do código não realiza deploy no Railway; banco local, planilhas, backups e `.env` não acompanham o Git. Commit/push desta publicação foram autorizados pontualmente pelo responsável.
 
 **O produto foi simplificado. Esta seção substitui o procedimento antigo abaixo no que envolve IA, agenda, conversas e lembretes.** Os demais cuidados com segredos, backup, TLS e isolamento da Evolution continuam válidos. Infraestrutura de produção (Dockerfile/compose/proxy) continua pendente; não declarar o sistema publicado.
@@ -10,10 +14,10 @@ Repositório de destino: `https://github.com/arruttor/Disparos`, branch `main`. 
 
 ### Agendador no Railway sem Celery (04/11/2026)
 
-O serviço web não executa a fila sozinho. Usar **um serviço separado Agendador**, com o mesmo repositório/branch do Disparos e o arquivo de configuração `/railway.agendador.json`. Ele executa `python -u manage.py processar_disparos --continuo --exigir-postgres`: uma verificação por minuto após cada passo, sempre respeitando o intervalo salvo no banco. Não precisa adicionar Redis para este agendador. Não executar também beat ou cron; manter uma única réplica, Serverless desligado, sem domínio público, sem HTTP healthcheck e sem Cron Schedule. Reinício do processo não libera reservas nem repete uma tentativa iniciada.
+O serviço web não executa a fila sozinho. Usar **um serviço separado Agendador**, com o mesmo repositório/branch do Disparos e Custom Start Command configurado no painel Railway. Ele executa `python -u manage.py processar_disparos --continuo --exigir-postgres`: uma verificação por minuto após cada passo, sempre respeitando o intervalo salvo no banco. Não precisa adicionar Redis para este agendador. Não executar também beat ou cron; manter uma única réplica, Serverless desligado, sem domínio público, sem HTTP healthcheck e sem Cron Schedule. Reinício do processo não libera reservas nem repete uma tentativa iniciada.
 
 1. **Pausar a fila no painel antes de criar o serviço.** Em Início, salvar horários `09:00,14:00,17:00`, lote `10` e intervalo `120` segundos. O código não modifica esses valores automaticamente nem ativa envios. Falhas também consomem tentativas do lote; não são garantidas dez entregas.
-2. Publicar o código autorizado e aguardar o deploy web concluir suas migrações. Criar o serviço Agendador usando o mesmo repositório GitHub e branch `main`. Nas configurações do serviço, definir o caminho de configuração como `/railway.agendador.json` antes do deploy efetivo do agendador. Não reutilizar `/railway.json`, que inicia o Gunicorn. O manifesto define uma réplica, suspensão automática desligada e restart ALWAYS; conferir as opções efetivas no deploy.
+2. Publicar o código autorizado e aguardar o deploy web concluir suas migrações. Criar o serviço Agendador usando o mesmo repositório GitHub e branch `main`. Deixar Railway Config File vazio e definir Custom Start Command como `python -u manage.py processar_disparos --continuo --exigir-postgres`. Não reutilizar o comando web que inicia Gunicorn. Definir uma réplica, suspensão automática desligada e restart ALWAYS; conferir as opções efetivas no deploy. O manifesto legado é somente referência para os valores.
 3. Em **Variables** do Agendador, cadastrar referências (não novos valores de segredos):
 
 ```dotenv

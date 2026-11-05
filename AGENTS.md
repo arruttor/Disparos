@@ -29,6 +29,8 @@
 
 ### Estado da adaptação
 
+- Documentação (05/11/2026): README reescrito para o produto atual, com tecnologias, arquitetura, instalação, importação, reservas, limitações e implantação efetivamente acompanhada no Railway. Projeto independente, sem vínculo com UPSYSTEMAS. O responsável confirmou login após a troca de banco, conexão WhatsApp, recebimento de teste e inicialização do Agendador; não foi comprovada campanha completa. Corrige a orientação anterior: serviço novo usa Custom Start Command, campo Config File vazio, pois o Railway recusou adesão ao Config as Code legado. Nenhuma alteração de código executável, banco ou ambiente remoto nesta sessão; sem commit/push autorizado.
+
 - Agendador Railway (04/11/2026): preparado modo `--continuo` no comando existente e manifesto próprio `railway.agendador.json`. `--exigir-postgres` impede usar SQLite isolado no serviço de produção. Não inicia web, não depende de Celery/Redis, não altera a fila e não retenta uma tentativa já reservada. Testes com relógio/API simulados verificam três lotes de dez contatos diferentes com intervalo 120 s, pausa, falha sem repetição e comando avulso. Publicação e criação/verificação do serviço remoto ainda pendentes; nenhum envio real nesta sessão. Sem alterações visuais.
 - Validação do agendador: 217 testes locais passando no SQLite; `check` sem erros e `makemigrations --check --dry-run` sem alterações. Manifesto conferido contra os campos do schema público Railway. Sem alteração de dados/configuração do banco local de pacientes ou do PostgreSQL remoto.
 
